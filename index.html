@@ -3,331 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة تقطيع الفواكه 3D</title>
+    <title>لعبة تقطيع الفواكه بمحرك Phaser.js</title>
+    <!-- استدعاء مكتبة Phaser 3 من خلال CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
         body {
-            background-color: #050508;
+            margin: 0;
+            background-color: #0b0f19;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none;
         }
-
-        .game-container {
-            position: relative;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+        #game-container {
             border-radius: 16px;
             overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.9);
             border: 4px solid #1e293b;
-        }
-
-        canvas {
-            /* خلفية عميقة تعطي إيحاء بالفضاء أو الطاولة ثلاثية الأبعاد */
-            background: radial-gradient(circle at center, #2e1065 0%, #0f172a 70%, #020617 100%);
-            display: block;
-            cursor: crosshair;
-        }
-
-        .hud {
-            position: absolute;
-            top: 25px;
-            left: 30px;
-            color: #38bdf8;
-            font-size: 36px;
-            font-weight: bold;
-            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
-            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div class="game-container">
-        <div class="hud" id="scoreDisplay">النقاط: 0</div>
-        <canvas id="gameCanvas" width="900" height="600"></canvas>
-    </div>
+    <div id="game-container"></div>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreDisplay = document.getElementById("scoreDisplay");
+        class FruitGame extends Phaser.Scene {
+            constructor() {
+                super('FruitGame');
+            }
 
-        let score = 0;
-        let entities = [];
-        let slices = [];
-        let isMouseDown = false;
+            preload() {
+                // لعدم الحاجة لصور خارجية، سنقوم برسم الأشكال بـ Graphics داخل Phaser
+            }
 
-        const fruitTypes = ["watermelon", "orange", "apple"];
+            create() {
+                // خلفية خشبية داكنة فاخرة تشبه اللعبة الأصلية
+                let bg = this.add.graphics();
+                bg.fillGradientStyle(0x78350f, 0x78350f, 0x3f1502, 0x1c0801, 1);
+                bg.fillRect(0, 0, 900, 600);
 
-        function spawnFruit() {
-            let type = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
-            entities.push({
-                isHalf: false,
-                type: type,
-                x: Math.random() * (canvas.width - 300) + 150,
-                y: canvas.height + 60,
-                z: Math.random() * 200 - 100, // عمق ثلاثي الأبعاد
-                vx: (Math.random() - 0.5) * 6,
-                vy: -(Math.random() * 4 + 14),
-                vz: (Math.random() - 0.5) * 2,
-                radius: type === "watermelon" ? 55 : 42,
-                rx: Math.random() * Math.PI,
-                ry: Math.random() * Math.PI,
-                rz: Math.random() * Math.PI,
-                vrx: (Math.random() - 0.5) * 0.08,
-                vry: (Math.random() - 0.5) * 0.08,
-                vrz: (Math.random() - 0.5) * 0.08
-            });
-        }
-
-        window.addEventListener("mousedown", (e) => { isMouseDown = true; addSlice(e); });
-        window.addEventListener("mouseup", () => { isMouseDown = false; });
-        window.addEventListener("mousemove", (e) => { if (isMouseDown) addSlice(e); });
-
-        canvas.addEventListener("touchstart", (e) => { isMouseDown = true; addSlice(e.touches[0]); e.preventDefault(); });
-        canvas.addEventListener("touchend", () => { isMouseDown = false; });
-        canvas.addEventListener("touchmove", (e) => { if (isMouseDown) addSlice(e.touches[0]); e.preventDefault(); });
-
-        function addSlice(e) {
-            const rect = canvas.getBoundingClientRect();
-            slices.push({ x: e.clientX - rect.left, y: e.clientY - rect.top, life: 10 });
-        }
-
-        function update() {
-            for (let i = entities.length - 1; i >= 0; i--) {
-                let ent = entities[i];
-                ent.x += ent.vx;
-                ent.y += ent.vy;
-                ent.z += ent.vz;
-                ent.vy += 0.42; // الجاذبية
-
-                ent.rx += ent.vrx;
-                ent.ry += ent.vry;
-                ent.rz += ent.vrz;
-
-                if (ent.y > canvas.height + 150) {
-                    entities.splice(i, 1);
+                // خطوط الطاولة الخشبية الخلفية
+                bg.lineStyle(2, 0x000000, 0.2);
+                for (let y = 0; y < 600; y += 40) {
+                    bg.lineBetween(0, y, 900, y);
                 }
+
+                this.score = 0;
+                this.scoreText = this.add.text(30, 25, 'النقاط: 0', {
+                    fontSize: '36px',
+                    fontFamily: 'Segoe UI',
+                    color: '#facc15',
+                    fontStyle: 'bold'
+                });
+
+                this.fruits = this.add.group();
+                this.sliceTrail = [];
+                this.isCutting = false;
+
+                // تتبع حركة الماوس أو اللمس للتقطيع وأثر السكين
+                this.input.on('pointerdown', (pointer) => {
+                    this.isCutting = true;
+                    this.sliceTrail = [{x: pointer.x, y: pointer.y}];
+                });
+
+                this.input.on('pointerup', () => {
+                    this.isCutting = false;
+                    this.sliceTrail = [];
+                });
+
+                this.input.on('pointermove', (pointer) => {
+                    if (this.isCutting) {
+                        this.sliceTrail.push({x: pointer.x, y: pointer.y});
+                        if (this.sliceTrail.length > 10) this.sliceTrail.shift();
+                        
+                        // فحص التقطيع
+                        this.checkSlice(pointer.x, pointer.y);
+                    }
+                });
+
+                // إطلاق الفواكه بشكل دوري
+                this.time.addEvent({
+                    delay: 900,
+                    callback: this.spawnFruit,
+                    callbackScope: this,
+                    loop: true
+                });
+
+                this.graphics = this.add.graphics();
             }
 
-            for (let i = slices.length - 1; i >= 0; i--) {
-                slices[i].life--;
-                if (slices[i].life <= 0) slices.splice(i, 1);
+            spawnFruit() {
+                let types = [
+                    { name: 'watermelon', outer: 0x15803d, inner: 0xef4444, radius: 45 },
+                    { name: 'orange', outer: 0xea580c, inner: 0xf97316, radius: 35 },
+                    { name: 'apple', outer: 0x16a34a, inner: 0x4ade80, radius: 32 }
+                ];
+                let type = Phaser.Math.RND.pick(types);
+
+                let x = Phaser.Math.Between(150, 750);
+                let fruit = this.add.container(x, 650);
+
+                let fGraphics = this.add.graphics();
+                // رسم القشرة الخارجية
+                fGraphics.fillStyle(type.outer, 1);
+                fGraphics.fillCircle(0, 0, type.radius);
+                fGraphics.lineStyle(3, 0x000000, 1);
+                fGraphics.strokeCircle(0, 0, type.radius);
+
+                // رسم اللب الداخلي
+                fGraphics.fillStyle(type.inner, 1);
+                fGraphics.fillCircle(0, 0, type.radius - 6);
+
+                fruit.add(fGraphics);
+                fruit.radius = type.radius;
+                fruit.typeData = type;
+                fruit.isHalf = false;
+
+                // خصائص الفيزياء والحركة (تقفز للأعلى وتهبط بالجاذبية)
+                fruit.vx = Phaser.Math.Between(-4, 4);
+                fruit.vy = Phaser.Math.Between(-14, -11);
+                fruit.vRot = Phaser.Math.FloatBetween(-0.05, 0.05);
+
+                this.fruits.add(fruit);
             }
 
-            if (slices.length > 0) {
-                let s = slices[slices.length - 1];
-                for (let i = entities.length - 1; i >= 0; i--) {
-                    let ent = entities[i];
-                    if (!ent.isHalf && Math.hypot(s.x - ent.x, s.y - ent.y) < ent.radius) {
-                        score += 20;
-                        scoreDisplay.textContent = "النقاط: " + score;
+            checkSlice(x, y) {
+                let children = this.fruits.getChildren();
+                for (let i = children.length - 1; i >= 0; i--) {
+                    let f = children[i];
+                    if (!f.isHalf && Phaser.Math.Distance.Between(x, y, f.x, f.y) < f.radius) {
+                        this.score += 15;
+                        this.scoreText.setText('النقاط: ' + this.score);
 
-                        // نصف أيسر 3D
-                        entities.push({
-                            isHalf: true,
-                            side: "left",
-                            type: ent.type,
-                            x: ent.x - 10,
-                            y: ent.y,
-                            z: ent.z,
-                            vx: ent.vx - 5,
-                            vy: ent.vy - 3,
-                            vz: ent.vz,
-                            radius: ent.radius,
-                            rx: ent.rx, ry: ent.ry, rz: ent.rz,
-                            vrx: -0.15, vry: 0.1, vrz: 0.05
-                        });
+                        // إنشاء نصفين متطايرين عند القطع
+                        this.createHalf(f.x, f.y, f.typeData, 'left', f.vx - 4, f.vy - 2);
+                        this.createHalf(f.x, f.y, f.typeData, 'right', f.vx + 4, f.vy - 2);
 
-                        // نصف أيمن 3D
-                        entities.push({
-                            isHalf: true,
-                            side: "right",
-                            type: ent.type,
-                            x: ent.x + 10,
-                            y: ent.y,
-                            z: ent.z,
-                            vx: ent.vx + 5,
-                            vy: ent.vy - 3,
-                            vz: ent.vz,
-                            radius: ent.radius,
-                            rx: ent.rx, ry: ent.ry, rz: ent.rz,
-                            vrx: 0.15, vry: -0.1, vrz: -0.05
-                        });
-
-                        entities.splice(i, 1);
+                        f.destroy();
                     }
                 }
             }
 
-            if (Math.random() < 0.025) {
-                spawnFruit();
-            }
-        }
+            createHalf(x, y, type, side, vx, vy) {
+                let half = this.add.container(x, y);
+                let hGraphics = this.add.graphics();
 
-        function draw3DFruit(ent) {
-            ctx.save();
-            ctx.translate(ent.x, ent.y);
-
-            // حساب مقياس المنظور بناءً على العمق Z لجعلها تبدو ثلاثية الأبعاد حقاً
-            let scale = 400 / (400 + ent.z);
-            ctx.scale(scale, scale);
-
-            // تدوير المجسم في المحاور الثلاثة
-            ctx.rotate(ent.rz);
-
-            let r = ent.radius;
-
-            if (ent.type === "watermelon") {
-                if (!ent.isHalf) {
-                    // --- بطيخ مجسم 3D ---
-                    let grad = ctx.createRadialGradient(-r/3, -r/3, 5, 0, 0, r);
-                    grad.addColorStop(0, "#4ade80");
-                    grad.addColorStop(0.5, "#15803d");
-                    grad.addColorStop(1, "#052e16");
-                    
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, r, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = "#022c22";
-                    ctx.stroke();
+                hGraphics.fillStyle(type.outer, 1);
+                hGraphics.beginPath();
+                if (side === 'left') {
+                    hGraphics.arc(0, 0, type.radius, Math.PI / 2, Math.PI * 1.5, false);
                 } else {
-                    // --- نصف بطيخ مقطوع 3D مع إظهار التظليل واللب ---
-                    ctx.beginPath();
-                    if (ent.side === "left") ctx.arc(0, 0, r, Math.PI / 2, Math.PI * 1.5, false);
-                    else ctx.arc(0, 0, r, Math.PI * 1.5, Math.PI / 2, false);
-                    ctx.closePath();
-                    ctx.fillStyle = "#14532d";
-                    ctx.fill();
-                    ctx.stroke();
-
-                    // اللب الداخلي الأحمر مع تأثير تجسيم (Gradient)
-                    let innerGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, r);
-                    innerGrad.addColorStop(0, "#f87171");
-                    innerGrad.addColorStop(0.8, "#dc2626");
-                    innerGrad.addColorStop(1, "#991b1b");
-
-                    ctx.fillStyle = innerGrad;
-                    ctx.beginPath();
-                    if (ent.side === "left") ctx.arc(0, 0, r - 8, Math.PI / 2, Math.PI * 1.5, false);
-                    else ctx.arc(0, 0, r - 8, Math.PI * 1.5, Math.PI / 2, false);
-                    ctx.closePath();
-                    ctx.fill();
+                    hGraphics.arc(0, 0, type.radius, Math.PI * 1.5, Math.PI / 2, false);
                 }
-            }
-            else if (ent.type === "orange") {
-                if (!ent.isHalf) {
-                    let grad = ctx.createRadialGradient(-r/3, -r/3, 2, 0, 0, r);
-                    grad.addColorStop(0, "#fb923c");
-                    grad.addColorStop(0.6, "#ea580c");
-                    grad.addColorStop(1, "#7c2d12");
+                hGraphics.closePath();
+                hGraphics.fillPath();
+                hGraphics.strokePath();
 
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, r, 0, Math.PI * 2);
-                    ctx.fill();
+                // اللب الداخلي للنصف
+                hGraphics.fillStyle(type.inner, 1);
+                hGraphics.beginPath();
+                if (side === 'left') {
+                    hGraphics.arc(0, 0, type.radius - 6, Math.PI / 2, Math.PI * 1.5, false);
                 } else {
-                    ctx.beginPath();
-                    if (ent.side === "left") ctx.arc(0, 0, r, Math.PI / 2, Math.PI * 1.5, false);
-                    else ctx.arc(0, 0, r, Math.PI * 1.5, Math.PI / 2, false);
-                    ctx.closePath();
-                    ctx.fillStyle = "#c2410c";
-                    ctx.fill();
-
-                    ctx.fillStyle = "#fb923c";
-                    ctx.beginPath();
-                    if (ent.side === "left") ctx.arc(0, 0, r - 6, Math.PI / 2, Math.PI * 1.5, false);
-                    else ctx.arc(0, 0, r - 6, Math.PI * 1.5, Math.PI / 2, false);
-                    ctx.closePath();
-                    ctx.fill();
+                    hGraphics.arc(0, 0, type.radius - 6, Math.PI * 1.5, Math.PI / 2, false);
                 }
+                hGraphics.closePath();
+                hGraphics.fillPath();
+
+                half.add(hGraphics);
+                half.vx = vx;
+                half.vy = vy;
+                half.vRot = side === 'left' ? -0.15 : 0.15;
+                half.isHalf = true;
+
+                this.fruits.add(half);
             }
-            else if (ent.type === "apple") {
-                if (!ent.isHalf) {
-                    let grad = ctx.createRadialGradient(-r/3, -r/3, 2, 0, 0, r);
-                    grad.addColorStop(0, "#4ade80");
-                    grad.addColorStop(0.6, "#16a34a");
-                    grad.addColorStop(1, "#14532d");
 
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, r, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    ctx.beginPath();
-                    if (ent.side === "left") ctx.arc(0, 0, r, Math.PI / 2, Math.PI * 1.5, false);
-                    else ctx.arc(0, 0, r, Math.PI * 1.5, Math.PI / 2, false);
-                    ctx.closePath();
-                    ctx.fillStyle = "#15803d";
-                    ctx.fill();
+            update() {
+                this.graphics.clear();
 
-                    ctx.fillStyle = "#fef08a";
-                    ctx.beginPath();
-                    if (ent.side === "left") ctx.arc(0, 0, r - 6, Math.PI / 2, Math.PI * 1.5, false);
-                    else ctx.arc(0, 0, r - 6, Math.PI * 1.5, Math.PI / 2, false);
-                    ctx.closePath();
-                    ctx.fill();
+                // تحديث حركات جميع الفواكه والأنصاف فيزيائياً
+                let children = this.fruits.getChildren();
+                for (let i = children.length - 1; i >= 0; i--) {
+                    let f = children[i];
+                    f.x += f.vx;
+                    f.y += f.vy;
+                    f.vy += 0.42; // الجاذبية
+                    f.rotation += f.vRot;
+
+                    if (f.y > 700) {
+                        f.destroy();
+                    }
                 }
-            }
 
-            ctx.restore();
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // رسم خطوط الشبكة في الخلفية لإعطاء طابع ثلاثي الأبعاد للعمق
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
-            ctx.lineWidth = 1;
-            for (let x = 0; x < canvas.width; x += 60) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
-            }
-
-            // ترتيب الفواكه حسب العمق (Z-index simulation) لتظهر بشكل ثلاثي الأبعاد حقيقي
-            entities.sort((a, b) => a.z - b.z);
-
-            for (let i = 0; i < entities.length; i++) {
-                draw3DFruit(entities[i]);
-            }
-
-            // أثر السكين النيون المتوهج
-            if (slices.length > 1) {
-                ctx.beginPath();
-                ctx.moveTo(slices[0].x, slices[0].y);
-                for (let i = 1; i < slices.length; i++) {
-                    ctx.lineTo(slices[i].x, slices[i].y);
+                // رسم أثر السكين المتوهج النيون
+                if (this.sliceTrail.length > 1) {
+                    this.graphics.lineStyle(8, 0x38bdf8, 0.9);
+                    this.graphics.beginPath();
+                    this.graphics.moveTo(this.sliceTrail[0].x, this.sliceTrail[0].y);
+                    for (let i = 1; i < this.sliceTrail.length; i++) {
+                        this.graphics.lineTo(this.sliceTrail[i].x, this.sliceTrail[i].y);
+                    }
+                    this.graphics.strokePath();
                 }
-                ctx.strokeStyle = "#38bdf8";
-                ctx.lineWidth = 10;
-                ctx.lineCap = "round";
-                ctx.shadowColor = "#0284c7";
-                ctx.shadowBlur = 30;
-                ctx.stroke();
-                ctx.shadowBlur = 0;
             }
         }
 
-        function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
-        }
+        const config = {
+            type: Phaser.AUTO,
+            width: 900,
+            height: 600,
+            parent: 'game-container',
+            scene: FruitGame
+        };
 
-        loop();
+        const game = new Phaser.Game(config);
     </script>
 </body>
 </html>
