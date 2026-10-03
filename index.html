@@ -3,210 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة الدراجة في المنحنيات</title>
+    <title>لعبة تقطيع الفواكه - Fruit Slice</title>
     <style>
-        body {
+        * {
+            box-sizing: border-box;
             margin: 0;
-            background: #0f172a;
+            padding: 0;
+        }
+
+        body {
+            background-color: #121214;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: manipulation;
+            touch-action: none;
         }
 
         .game-container {
             position: relative;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.8);
-            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            border-radius: 15px;
             overflow: hidden;
-            border: 3px solid #334155;
+            border: 4px solid #3f3f46;
         }
 
         canvas {
-            background: linear-gradient(to bottom, #1e293b, #0f172a);
+            /* خلفية خشبية واقعية تشبه اللعبة الأصلية */
+            background: radial-gradient(circle, #854d0e 20%, #451a03 90%);
             display: block;
+            cursor: crosshair;
         }
 
-        .instructions {
+        .score-board {
             position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #cbd5e1;
-            background: rgba(15, 23, 42, 0.7);
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 15px;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
             pointer-events: none;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.1);
         }
     </style>
 </head>
 <body>
 
     <div class="game-container">
-        <div class="instructions">استخدم سهم اليمين/اليسار (أو A و D) للحركة والتوازن، والأسهم للأعلى/للأسفل للسرعة!</div>
+        <div class="score-board" id="scoreBoard">النقاط: 0</div>
         <canvas id="gameCanvas" width="800" height="500"></canvas>
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const scoreBoard = document.getElementById("scoreBoard");
 
-        // إعدادات الدراجة والفيزياء
-        let bike = {
-            x: 100,
-            y: 300,
-            vx: 0,
-            vy: 0,
-            angle: 0,
-            baseY: 300,
-            speed: 0.15
-        };
-
-        let keys = {};
-        let cameraX = 0;
         let score = 0;
+        let fruits = [];
+        let slices = []; // لتتبع آثار السكين أو الإصبع
+        let isMouseDown = false;
 
-        window.addEventListener("keydown", (e) => { keys[e.code] = true; });
-        window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+        // مصفوفة أنواع الفواكه وألوانها
+        const fruitTypes = [
+            { name: "بطيخ", color: "#ef4444", outerColor: "#15803d", radius: 35 },
+            { name: "برتقال", color: "#f97316", outerColor: "#ea580c", radius: 28 },
+            { name: "تفاح", color: "#22c55e", outerColor: "#15803d", radius: 25 },
+            { name: "موز", color: "#eab308", outerColor: "#ca8a04", radius: 22 }
+        ];
 
-        // دالة لتوليد المنحنيات والارتفاعات المتعددة (تضاريس جبلية ومسارات أفقية)
-        function getTerrainHeight(x) {
-            // دمج عدة دوال موجية لتوليد منحنيات، مرتفعات، ومناطق أفقية مستوية
-            return 350 + 
-                   Math.sin(x * 0.003) * 100 + 
-                   Math.sin(x * 0.008) * 50 + 
-                   Math.cos(x * 0.001) * 60;
+        // توليد فاكهة جديدة تطير للأعلى
+        function spawnFruit() {
+            let type = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+            let fruit = {
+                x: Math.random() * (canvas.width - 200) + 100,
+                y: canvas.height + 40,
+                vx: (Math.random() - 0.5) * 6,
+                vy: -(Math.random() * 4 + 11), // قوة القفز للأعلى
+                radius: type.radius,
+                color: type.color,
+                outerColor: type.outerColor,
+                sliced: false,
+                rotation: 0,
+                vRot: (Math.random() - 0.5) * 0.1
+            };
+            fruits.push(fruit);
+        }
+
+        // تتبع حركة الفأرة أو اللمس للتقطيع
+        window.addEventListener("mousedown", (e) => { isMouseDown = true; addSlicePoint(e); });
+        window.addEventListener("mouseup", () => { isMouseDown = false; });
+        window.addEventListener("mousemove", (e) => { if (isMouseDown) addSlicePoint(e); });
+
+        // دعم الموبايل باللمس
+        canvas.addEventListener("touchstart", (e) => { isMouseDown = true; addSlicePoint(e.touches[0]); e.preventDefault(); });
+        canvas.addEventListener("touchend", () => { isMouseDown = false; });
+        canvas.addEventListener("touchmove", (e) => { if (isMouseDown) addSlicePoint(e.touches[0]); e.preventDefault(); });
+
+        function addSlicePoint(e) {
+            const rect = canvas.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
+            slices.push({ x: x, y: y, life: 10 }); // عمر خط التقطيع يختفي سريعا
         }
 
         function update() {
-            // التحكم بالحركة والسرعة
-            if (keys["ArrowRight"] || keys["KeyD"]) {
-                bike.vx += bike.speed;
-                score += 0.05;
+            // تحديث الفواكه وحركتها الفيزيائية (جاذبية)
+            for (let i = fruits.length - 1; i >= 0; i--) {
+                let f = fruits[i];
+                f.x += f.vx;
+                f.y += f.vy;
+                f.vy += 0.35; // الجاذبية تسحبها لأسفل
+                f.rotation += f.vRot;
+
+                // إزالة الفاكهة إذا خرجت من الشاشة
+                if (f.y > canvas.height + 60) {
+                    fruits.splice(i, 1);
+                }
             }
-            if (keys["ArrowLeft"] || keys["KeyA"]) {
-                bike.vx -= bike.speed;
+
+            // تحديث خطوط السكين
+            for (let i = slices.length - 1; i >= 0; i--) {
+                slices[i].life--;
+                if (slices[i].life <= 0) {
+                    slices.splice(i, 1);
+                }
             }
 
-            // احتكاك ومقاومة حركة
-            bike.vx *= 0.98;
-            bike.x += bike.vx;
+            // فحص التقاطع والتقطيع (إذا لامس خط السكين الفاكهة)
+            if (slices.length > 0) {
+                let currentSlice = slices[slices.length - 1];
+                for (let i = fruits.length - 1; i >= 0; i--) {
+                    let f = fruits[i];
+                    let dist = Math.hypot(currentSlice.x - f.x, currentSlice.y - f.y);
+                    if (dist < f.radius && !f.sliced) {
+                        f.sliced = true;
+                        score += 10;
+                        scoreBoard.textContent = "النقاط: " + score;
+                        // إزالة الفاكهة عند تقطيعها وإضافة تأثير بسيط
+                        fruits.splice(i, 1);
+                    }
+                }
+            }
 
-            // حساب التضاريس تحت الدراجة مباشرة
-            let currentGround = getTerrainHeight(bike.x);
-            let nextGround = getTerrainHeight(bike.x + 10);
-            
-            // حساب زاوية ميلان المنحنى لكي تتمايل الدراجة عليه واقعياً
-            let angleRad = Math.atan2(nextGround - currentGround, 10);
-            bike.angle = angleRad;
-
-            // تثبيت الدراجة على المنحنى
-            bike.y = currentGround - 25;
-
-            // متابعة الكاميرا للدراجة
-            cameraX = bike.x - 200;
+            // إطلاق فواكه عشوائية كل فترة
+            if (Math.random() < 0.03) {
+                spawnFruit();
+            }
         }
 
         function draw() {
+            // مسح الشاشة ورسم خلفية خشبية مزخرفة
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.save();
-            ctx.translate(-cameraX, 0);
-
-            // --- 1. رسم الخلفية والنجوم ---
-            ctx.fillStyle = "#38bdf8";
-            ctx.beginPath();
-            ctx.arc(cameraX + 700, 100, 45, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-            ctx.fill();
-
-            // --- 2. رسم مسار المنحنيات والتلال المتعددة ---
-            ctx.beginPath();
-            ctx.moveTo(cameraX - 100, canvas.height);
-            
-            for (let x = cameraX - 100; x < cameraX + canvas.width + 100; x += 10) {
-                let y = getTerrainHeight(x);
-                ctx.lineTo(x, y);
+            // رسم خطوط خشبية أفقية خفيفة لإعطاء مظهر طاولة المطبخ
+            ctx.strokeStyle = "rgba(0,0,0,0.15)";
+            ctx.lineWidth = 2;
+            for(let y = 0; y < canvas.height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
             }
 
-            ctx.lineTo(cameraX + canvas.width + 100, canvas.height);
-            ctx.closePath();
+            // رسم الفواكه المتطايرة
+            for (let i = 0; i < fruits.length; i++) {
+                let f = fruits[i];
+                ctx.save();
+                ctx.translate(f.x, f.y);
+                ctx.rotate(f.rotation);
 
-            // تدرج لوني واقعي للأرضية
-            let groundGrad = ctx.createLinearGradient(0, 200, 0, canvas.height);
-            groundGrad.addColorStop(0, "#10b981");
-            groundGrad.addColorStop(0.2, "#047857");
-            groundGrad.addColorStop(1, "#022c22");
-            ctx.fillStyle = groundGrad;
-            ctx.fill();
+                // رسم قشرة الفاكهة الخارجية
+                ctx.fillStyle = f.outerColor;
+                ctx.beginPath();
+                ctx.arc(0, 0, f.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "#000";
+                ctx.stroke();
 
-            // خطوط تزيينية على طول المنحنيات
-            ctx.strokeStyle = "#34d399";
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            for (let x = cameraX - 100; x < cameraX + canvas.width + 100; x += 10) {
-                let y = getTerrainHeight(x);
-                if (x === cameraX - 100) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+                // رسم من الداخل (لب الفاكهة)
+                ctx.fillStyle = f.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, f.radius - 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
             }
-            ctx.stroke();
 
-            // --- 3. رسم الدراجة والسائق ---
-            ctx.save();
-            ctx.translate(bike.x, bike.y);
-            ctx.rotate(bike.angle);
-
-            // هيكل الدراجة
-            ctx.strokeStyle = "#f43f5e";
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(-15, 0);
-            ctx.lineTo(15, -5);
-            ctx.lineTo(5, -25);
-            ctx.closePath();
-            ctx.stroke();
-
-            // العجلة الخلفية
-            ctx.fillStyle = "#1e293b";
-            ctx.strokeStyle = "#cbd5e1";
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(-15, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-
-            // العجلة الأمامية
-            ctx.beginPath();
-            ctx.arc(15, -5, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-
-            // السائق (الجسم والرأس)
-            ctx.fillStyle = "#fbbf24"; // الخوذة
-            ctx.beginPath();
-            ctx.arc(2, -35, 7, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = "#3b82f6"; // الجسم
-            ctx.lineWidth = 5;
-            ctx.beginPath();
-            ctx.moveTo(2, -28);
-            ctx.lineTo(0, -10);
-            ctx.stroke();
-
-            ctx.restore();
-            ctx.restore();
-
-            // --- 4. رسم لوحة النقاط والعدادات ---
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 22px 'Segoe UI'";
-            ctx.fillText("المسافة المقطوعة: " + Math.floor(score) + " متر", 30, 40);
+            // رسم أثر السكين البراق (Blade Trail)
+            if (slices.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(slices[0].x, slices[0].y);
+                for (let i = 1; i < slices.length; i++) {
+                    ctx.lineTo(slices[i].x, slices[i].y);
+                }
+                ctx.strokeStyle = "#38bdf8"; // لون شرارة البرق أو السكين
+                ctx.lineWidth = 6;
+                ctx.lineCap = "round";
+                ctx.shadowColor = "#38bdf8";
+                ctx.shadowBlur = 15;
+                ctx.stroke();
+                ctx.shadowBlur = 0; // إعادة ضبط
+            }
         }
 
         function loop() {
