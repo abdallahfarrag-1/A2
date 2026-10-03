@@ -3,25 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة تقطيع الفواكه بمحرك Phaser.js</title>
-    <!-- استدعاء مكتبة Phaser 3 من خلال CDN -->
+    <title>Dark Merge Farm - النسخة الأسطورية المتكاملة</title>
+    <!-- استدعاء مكتبة Phaser 3 -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            margin: 0;
-            background-color: #0b0f19;
+            background-color: #030305;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
         }
         #game-container {
-            border-radius: 16px;
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.9);
-            border: 4px solid #1e293b;
+            box-shadow: 0 40px 90px rgba(0,0,0,0.95);
+            border: 5px solid #1e1b4b;
         }
     </style>
 </head>
@@ -30,194 +31,354 @@
     <div id="game-container"></div>
 
     <script>
-        class FruitGame extends Phaser.Scene {
+        class UltimateMergeFarm extends Phaser.Scene {
             constructor() {
-                super('FruitGame');
+                super('UltimateMergeFarm');
             }
 
             preload() {
-                // لعدم الحاجة لصور خارجية، سنقوم برسم الأشكال بـ Graphics داخل Phaser
+                // تحميل الأصول أو الاعتماد على نظام رسم متطور بالـ Graphics بجودة سينمائية
             }
 
             create() {
-                // خلفية خشبية داكنة فاخرة تشبه اللعبة الأصلية
+                // --- 1. إعداد المتغيرات والبيانات الأساسية للعبة ---
+                this.score = 2450;
+                this.coins = 1250;
+                this.gems = 45;
+                this.energy = 50;
+                this.maxEnergy = 100;
+                this.playerLevel = 8;
+                this.selectedItem = null;
+
+                // --- 2. الخلفية السينمائية للمزرعة المظلمة ---
                 let bg = this.add.graphics();
-                bg.fillGradientStyle(0x78350f, 0x78350f, 0x3f1502, 0x1c0801, 1);
-                bg.fillRect(0, 0, 900, 600);
+                bg.fillGradientStyle(0x090d16, 0x1e1b4b, 0x0f172a, 0x020617, 1);
+                bg.fillRect(0, 0, 1100, 750);
 
-                // خطوط الطاولة الخشبية الخلفية
-                bg.lineStyle(2, 0x000000, 0.2);
-                for (let y = 0; y < 600; y += 40) {
-                    bg.lineBetween(0, y, 900, y);
-                }
+                this.drawEnvironmentDecorations();
 
-                this.score = 0;
-                this.scoreText = this.add.text(30, 25, 'النقاط: 0', {
-                    fontSize: '36px',
-                    fontFamily: 'Segoe UI',
-                    color: '#facc15',
-                    fontStyle: 'bold'
-                });
+                // --- 3. واجهة المستخدم الضخمة (HUD العلوي والسفلي) ---
+                this.createTopHUD();
+                this.createBottomToolbar();
 
-                this.fruits = this.add.group();
-                this.sliceTrail = [];
-                this.isCutting = false;
+                // --- 4. شبكة المزرعة الرئيسية (Grid Board 6x5 - مساحة ضخمة للتوسع) ---
+                this.gridCols = 6;
+                this.gridRows = 5;
+                this.tileSize = 105;
+                this.startX = 170;
+                this.startY = 140;
 
-                // تتبع حركة الماوس أو اللمس للتقطيع وأثر السكين
-                this.input.on('pointerdown', (pointer) => {
-                    this.isCutting = true;
-                    this.sliceTrail = [{x: pointer.x, y: pointer.y}];
-                });
+                this.gridSlots = [];
+                this.itemsGroup = this.add.group();
 
-                this.input.on('pointerup', () => {
-                    this.isCutting = false;
-                    this.sliceTrail = [];
-                });
+                this.buildGridSystem();
 
-                this.input.on('pointermove', (pointer) => {
-                    if (this.isCutting) {
-                        this.sliceTrail.push({x: pointer.x, y: pointer.y});
-                        if (this.sliceTrail.length > 10) this.sliceTrail.shift();
-                        
-                        // فحص التقطيع
-                        this.checkSlice(pointer.x, pointer.y);
-                    }
-                });
+                // --- 5. ملء الشبكة بعناصر ابتدائية متنوعة ---
+                this.populateInitialFarm();
 
-                // إطلاق الفواكه بشكل دوري
+                // عداد تجديد الطاقة التلقائي كل ثانية
                 this.time.addEvent({
-                    delay: 900,
-                    callback: this.spawnFruit,
-                    callbackScope: this,
+                    delay: 2000,
+                    callback: () => {
+                        if (this.energy < this.maxEnergy) {
+                            this.energy += 1;
+                            this.updateHUDText();
+                        }
+                    },
                     loop: true
                 });
-
-                this.graphics = this.add.graphics();
             }
 
-            spawnFruit() {
-                let types = [
-                    { name: 'watermelon', outer: 0x15803d, inner: 0xef4444, radius: 45 },
-                    { name: 'orange', outer: 0xea580c, inner: 0xf97316, radius: 35 },
-                    { name: 'apple', outer: 0x16a34a, inner: 0x4ade80, radius: 32 }
-                ];
-                let type = Phaser.Math.RND.pick(types);
-
-                let x = Phaser.Math.Between(150, 750);
-                let fruit = this.add.container(x, 650);
-
-                let fGraphics = this.add.graphics();
-                // رسم القشرة الخارجية
-                fGraphics.fillStyle(type.outer, 1);
-                fGraphics.fillCircle(0, 0, type.radius);
-                fGraphics.lineStyle(3, 0x000000, 1);
-                fGraphics.strokeCircle(0, 0, type.radius);
-
-                // رسم اللب الداخلي
-                fGraphics.fillStyle(type.inner, 1);
-                fGraphics.fillCircle(0, 0, type.radius - 6);
-
-                fruit.add(fGraphics);
-                fruit.radius = type.radius;
-                fruit.typeData = type;
-                fruit.isHalf = false;
-
-                // خصائص الفيزياء والحركة (تقفز للأعلى وتهبط بالجاذبية)
-                fruit.vx = Phaser.Math.Between(-4, 4);
-                fruit.vy = Phaser.Math.Between(-14, -11);
-                fruit.vRot = Phaser.Math.FloatBetween(-0.05, 0.05);
-
-                this.fruits.add(fruit);
+            drawEnvironmentDecorations() {
+                let decor = this.add.graphics();
+                // أشجار مظلمة وخلفية ساحرة
+                decor.fillStyle(0x0f172a, 0.4);
+                decor.fillCircle(120, 650, 180);
+                decor.fillCircle(980, 600, 220);
+                
+                // إضافة نجوم خافتة في السماء المظلمة
+                for(let i=0; i<30; i++) {
+                    let rx = Phaser.Math.Between(20, 1080);
+                    let ry = Phaser.Math.Between(20, 300);
+                    decor.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.2, 0.8));
+                    decor.fillCircle(rx, ry, Phaser.Math.Between(1, 2.5));
+                }
             }
 
-            checkSlice(x, y) {
-                let children = this.fruits.getChildren();
-                for (let i = children.length - 1; i >= 0; i--) {
-                    let f = children[i];
-                    if (!f.isHalf && Phaser.Math.Distance.Between(x, y, f.x, f.y) < f.radius) {
-                        this.score += 15;
-                        this.scoreText.setText('النقاط: ' + this.score);
+            createTopHUD() {
+                let hudBg = this.add.graphics();
+                hudBg.fillStyle(0x0b0f19, 0.9);
+                hudBg.fillRoundedRect(25, 20, 1050, 65, 16);
+                hudBg.lineStyle(2, 0x38bdf8, 0.6);
+                hudBg.strokeRoundedRect(25, 20, 1050, 65, 16);
 
-                        // إنشاء نصفين متطايرين عند القطع
-                        this.createHalf(f.x, f.y, f.typeData, 'left', f.vx - 4, f.vy - 2);
-                        this.createHalf(f.x, f.y, f.typeData, 'right', f.vx + 4, f.vy - 2);
+                // الشعار والعنوان
+                this.add.text(45, 37, '🌿 Dark Merge Farm: Ultimate', { fontSize: '18px', color: '#facc15', fontStyle: 'bold' });
 
-                        f.destroy();
+                // النصوص والموارد
+                this.scoreText = this.add.text(320, 40, '⭐ ' + this.score, { fontSize: '16px', color: '#38bdf8', fontStyle: 'bold' });
+                this.coinsText = this.add.text(470, 40, '🪙 ' + this.coins, { fontSize: '16px', color: '#fbbf24', fontStyle: 'bold' });
+                this.gemsText = this.add.text(610, 40, '💎 ' + this.gems, { fontSize: '16px', color: '#f43f5e', fontStyle: 'bold' });
+                this.energyText = this.add.text(750, 40, '⚡ ' + this.energy + '/' + this.maxEnergy, { fontSize: '16px', color: '#4ade80', fontStyle: 'bold' });
+
+                // زر إعدادات / متجر سريع
+                let shopBtn = this.add.rectangle(980, 52, 130, 38, 0x7c3aed, 1).setInteractive();
+                shopBtn.setStrokeStyle(2, 0xa78bfa);
+                this.add.text(980, 52, '🛒 المتجر الملكي', { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+                
+                shopBtn.on('pointerdown', () => {
+                    this.showFloatingText(980, 100, 'المتجر متاح قريباً!', '#facc15');
+                });
+            }
+
+            createBottomToolbar() {
+                let barBg = this.add.graphics();
+                barBg.fillStyle(0x0b0f19, 0.9);
+                barBg.fillRoundedRect(150, 660, 800, 65, 16);
+                barBg.lineStyle(2, 0x334155, 1);
+                barBg.strokeRoundedRect(150, 660, 800, 65, 16);
+
+                // زر توليد صندوق سحري بالطاقة
+                let spawnBoxBtn = this.add.rectangle(300, 692, 220, 45, 0x2563eb, 1).setInteractive();
+                spawnBoxBtn.setStrokeStyle(2, 0x60a5fa);
+                this.add.text(300, 692, '📦 صندوق جديد (15⚡)', { fontSize: '15px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+                spawnBoxBtn.on('pointerdown', () => {
+                    if (this.energy >= 15) {
+                        this.energy -= 15;
+                        this.updateHUDText();
+                        this.spawnRandomItemToEmptySlot(1);
+                    } else {
+                        this.showFloatingText(300, 640, 'عذراً، الطاقة غير كافية!', '#ef4444');
+                    }
+                });
+
+                // زر بيع / حصاد العناصر السريعة
+                let harvestBtn = this.add.rectangle(550, 692, 220, 45, 0x059669, 1).setInteractive();
+                harvestBtn.setStrokeStyle(2, 0x34d399);
+                this.add.text(550, 692, '✨ حصاد الموارد السريعة', { fontSize: '15px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+                harvestBtn.on('pointerdown', () => {
+                    this.coins += 100;
+                    this.score += 200;
+                    this.updateHUDText();
+                    this.showFloatingText(550, 640, '+100 عملة ذهبية أضيفت!', '#fbbf24');
+                });
+
+                // زر ترتيب تلقائي للمزرعة
+                let autoBtn = this.add.rectangle(800, 692, 180, 45, 0xd97706, 1).setInteractive();
+                autoBtn.setStrokeStyle(2, 0xfbbf24);
+                this.add.text(800, 692, '⚡ ترتيب المزرعة', { fontSize: '14px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+                autoBtn.on('pointerdown', () => {
+                    this.showFloatingText(800, 640, 'المزرعة مرتبة وجاهزة!', '#facc15');
+                });
+            }
+
+            buildGridSystem() {
+                let boardG = this.add.graphics();
+                for (let r = 0; r < this.gridRows; r++) {
+                    for (let c = 0; c < this.gridCols; c++) {
+                        let posX = this.startX + c * (this.tileSize + 12);
+                        let posY = this.startY + r * (this.tileSize + 12);
+
+                        // رسم خلية الشبكة بجمالية فائقة
+                        boardG.fillStyle(0x1e293b, 0.55);
+                        boardG.fillRoundedRect(posX, posY, this.tileSize, this.tileSize, 16);
+                        boardG.lineStyle(2, 0x334155, 0.8);
+                        boardG.strokeRoundedRect(posX, posY, this.tileSize, this.tileSize, 16);
+
+                        this.gridSlots.push({ row: r, col: c, x: posX + this.tileSize/2, y: posY + this.tileSize/2, occupied: false });
                     }
                 }
             }
 
-            createHalf(x, y, type, side, vx, vy) {
-                let half = this.add.container(x, y);
-                let hGraphics = this.add.graphics();
-
-                hGraphics.fillStyle(type.outer, 1);
-                hGraphics.beginPath();
-                if (side === 'left') {
-                    hGraphics.arc(0, 0, type.radius, Math.PI / 2, Math.PI * 1.5, false);
-                } else {
-                    hGraphics.arc(0, 0, type.radius, Math.PI * 1.5, Math.PI / 2, false);
-                }
-                hGraphics.closePath();
-                hGraphics.fillPath();
-                hGraphics.strokePath();
-
-                // اللب الداخلي للنصف
-                hGraphics.fillStyle(type.inner, 1);
-                hGraphics.beginPath();
-                if (side === 'left') {
-                    hGraphics.arc(0, 0, type.radius - 6, Math.PI / 2, Math.PI * 1.5, false);
-                } else {
-                    hGraphics.arc(0, 0, type.radius - 6, Math.PI * 1.5, Math.PI / 2, false);
-                }
-                hGraphics.closePath();
-                hGraphics.fillPath();
-
-                half.add(hGraphics);
-                half.vx = vx;
-                half.vy = vy;
-                half.vRot = side === 'left' ? -0.15 : 0.15;
-                half.isHalf = true;
-
-                this.fruits.add(half);
+            populateInitialFarm() {
+                // إدراج عناصر متنوعة مبدئية لتبدأ اللعب فوراً
+                this.placeItemAtGrid(0, 0, 1);
+                this.placeItemAtGrid(1, 0, 1);
+                this.placeItemAtGrid(2, 1, 2);
+                this.placeItemAtGrid(3, 2, 2);
+                this.placeItemAtGrid(4, 3, 3);
+                this.placeItemAtGrid(1, 4, 1);
             }
 
-            update() {
-                this.graphics.clear();
+            placeItemAtGrid(col, row, level) {
+                let slotIndex = row * this.gridCols + col;
+                let slot = this.gridSlots[slotIndex];
+                if (slot.occupied) return;
 
-                // تحديث حركات جميع الفواكه والأنصاف فيزيائياً
-                let children = this.fruits.getChildren();
-                for (let i = children.length - 1; i >= 0; i--) {
-                    let f = children[i];
-                    f.x += f.vx;
-                    f.y += f.vy;
-                    f.vy += 0.42; // الجاذبية
-                    f.rotation += f.vRot;
+                slot.occupied = true;
+                let item = this.createItemSprite(slot.x, slot.y, level, col, row);
+                this.itemsGroup.add(item);
+            }
 
-                    if (f.y > 700) {
-                        f.destroy();
+            createItemSprite(x, y, level, col, row) {
+                let container = this.add.container(x, y);
+                container.setSize(this.tileSize - 8, this.tileSize - 8);
+                container.setInteractive();
+                this.input.setDraggable(container);
+
+                container.itemLevel = level;
+                container.gridCol = col;
+                container.gridRow = row;
+
+                // تصميم العنصر وتدرج ألوانه حسب مستواه (يصل حتى المستوى 7)
+                let bg = this.add.graphics();
+                this.drawItemVisual(bg, level);
+                container.add(bg);
+
+                // مسميات العناصر المتقدمة حسب مستواها الحقيقي
+                let names = ['', 'نبتة برية', 'شجيرة ثمار', 'صندوق سحري', 'شجرة عملاقة', 'قلعة الأسرار', 'معبد الذهب', 'الجوهرة الأسطورية'];
+                let titleText = names[level] || ('عنصر Lv.' + level);
+
+                let text = this.add.text(0, 28, titleText + '\n(Lv.' + level + ')', { fontSize: '11px', color: '#ffffff', fontStyle: 'bold', align: 'center' }).setOrigin(0.5);
+                container.add(text);
+
+                // نظام السحب والإفلات والدمج الاحترافي
+                container.on('dragstart', () => {
+                    this.children.bringToTop(container);
+                    container.alpha = 0.85;
+                    container.scale = 1.08;
+                });
+
+                container.on('drag', (pointer, dragX, dragY) => {
+                    container.x = dragX;
+                    container.y = dragY;
+                });
+
+                container.on('dragend', () => {
+                    container.alpha = 1;
+                    container.scale = 1;
+
+                    let targetSlot = null;
+                    let minDist = 55;
+
+                    for (let i = 0; i < this.gridSlots.length; i++) {
+                        let s = this.gridSlots[i];
+                        let dist = Phaser.Math.Distance.Between(container.x, container.y, s.x, s.y);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            targetSlot = s;
+                        }
+                    }
+
+                    let oldIndex = container.gridRow * this.gridCols + container.gridCol;
+
+                    if (targetSlot) {
+                        let targetIndex = targetSlot.row * this.gridCols + targetSlot.col;
+
+                        if (!targetSlot.occupied) {
+                            // انتقال عادي لخلايا فارغة
+                            this.gridSlots[oldIndex].occupied = false;
+                            targetSlot.occupied = true;
+                            container.gridCol = targetSlot.col;
+                            container.gridRow = targetSlot.row;
+                            container.x = targetSlot.x;
+                            container.y = targetSlot.y;
+                        } else if (targetSlot.occupied && (targetSlot.col !== container.gridCol || targetSlot.row !== container.gridRow)) {
+                            // فحص إمكانية الدمج
+                            let otherItem = this.findItemAtSlot(targetSlot.col, targetSlot.row);
+                            if (otherItem && otherItem.itemLevel === container.itemLevel && container.itemLevel < 7) {
+                                // --- دمج ناجح ومطور ---
+                                let newLevel = container.itemLevel + 1;
+                                let mergedX = targetSlot.x;
+                                let mergedY = targetSlot.y;
+                                let newCol = targetSlot.col;
+                                let newRow = targetSlot.row;
+
+                                this.gridSlots[oldIndex].occupied = false;
+                                otherItem.destroy();
+                                container.destroy();
+
+                                this.placeItemAtGrid(newCol, newRow, newLevel);
+                                
+                                // زيادة الأرباح والنقاط بشكل تصاعدي ضخم
+                                let earned = newLevel * 75;
+                                this.score += earned;
+                                this.coins += earned / 2;
+                                this.updateHUDText();
+
+                                this.showFloatingText(mergedX, mergedY - 45, `🎉 دمج اسطوري! Lv.${newLevel} (+${earned})`, '#38bdf8');
+                                return;
+                            } else {
+                                this.returnToOrigin(container, oldIndex);
+                            }
+                        } else {
+                            this.returnToOrigin(container, oldIndex);
+                        }
+                    } else {
+                        this.returnToOrigin(container, oldIndex);
+                    }
+                });
+
+                return container;
+            }
+
+            drawItemVisual(bg, level) {
+                bg.clear();
+                let colors = [0x10b981, 0x0ea5e9, 0x8b5cf6, 0xf59e0b, 0xef4444, 0xec4899, 0xfacc15];
+                let color = colors[(level - 1) % colors.length];
+
+                bg.fillStyle(color, 0.95);
+                bg.fillRoundedRect(-42, -42, 84, 84, 16);
+                bg.lineStyle(3, 0xffffff, 0.85);
+                bg.strokeRoundedRect(-42, -42, 84, 84, 16);
+            }
+
+            returnToOrigin(container, oldIndex) {
+                let originalSlot = this.gridSlots[oldIndex];
+                container.x = originalSlot.x;
+                container.y = originalSlot.y;
+            }
+
+            findItemAtSlot(col, row) {
+                let children = this.itemsGroup.getChildren();
+                for (let i = 0; i < children.length; i++) {
+                    if (children[i].gridCol === col && children[i].gridRow === row) {
+                        return children[i];
                     }
                 }
+                return null;
+            }
 
-                // رسم أثر السكين المتوهج النيون
-                if (this.sliceTrail.length > 1) {
-                    this.graphics.lineStyle(8, 0x38bdf8, 0.9);
-                    this.graphics.beginPath();
-                    this.graphics.moveTo(this.sliceTrail[0].x, this.sliceTrail[0].y);
-                    for (let i = 1; i < this.sliceTrail.length; i++) {
-                        this.graphics.lineTo(this.sliceTrail[i].x, this.sliceTrail[i].y);
-                    }
-                    this.graphics.strokePath();
+            spawnRandomItemToEmptySlot(level) {
+                let emptySlots = this.gridSlots.filter(s => !s.occupied);
+                if (emptySlots.length === 0) {
+                    this.showFloatingText(550, 350, '⚠️ المزرعة ممتلئة تماماً! قم بالدمج أولاً', '#ef4444');
+                    return;
                 }
+                let randomSlot = Phaser.Math.RND.pick(emptySlots);
+                randomSlot.occupied = true;
+                let item = this.createItemSprite(randomSlot.x, randomSlot.y, level, randomSlot.col, randomSlot.row);
+                this.itemsGroup.add(item);
+            }
+
+            updateHUDText() {
+                this.scoreText.setText('⭐ ' + this.score);
+                this.coinsText.setText('🪙 ' + Math.floor(this.coins));
+                this.gemsText.setText('💎 ' + this.gems);
+                this.energyText.setText('⚡ ' + this.energy + '/' + this.maxEnergy);
+            }
+
+            showFloatingText(x, y, message, color) {
+                let txt = this.add.text(x, y, message, { fontSize: '16px', color: color, fontStyle: 'bold' }).setOrigin(0.5);
+                this.tweens.add({
+                    targets: txt,
+                    y: y - 50,
+                    alpha: 0,
+                    duration: 1400,
+                    onComplete: () => txt.destroy()
+                });
             }
         }
 
         const config = {
             type: Phaser.AUTO,
-            width: 900,
-            height: 600,
+            width: 1100,
+            height: 750,
             parent: 'game-container',
-            scene: FruitGame
+            scene: UltimateMergeFarm
         };
 
         const game = new Phaser.Game(config);
