@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة تقطيع الفواكه - Fruit Slice</title>
+    <title>لعبة تقطيع الفواكه - النسخة الواقعية</title>
     <style>
         * {
             box-sizing: border-box;
@@ -12,7 +12,7 @@
         }
 
         body {
-            background-color: #121214;
+            background-color: #0d0d0f;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -24,27 +24,26 @@
 
         .game-container {
             position: relative;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
-            border-radius: 15px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+            border-radius: 16px;
             overflow: hidden;
-            border: 4px solid #3f3f46;
+            border: 4px solid #27272a;
         }
 
         canvas {
-            /* خلفية خشبية واقعية تشبه اللعبة الأصلية */
-            background: radial-gradient(circle, #854d0e 20%, #451a03 90%);
+            background: radial-gradient(circle, #78350f 10%, #3f1502 80%, #1c0801 100%);
             display: block;
             cursor: crosshair;
         }
 
-        .score-board {
+        .hud {
             position: absolute;
             top: 20px;
-            left: 20px;
-            color: #fff;
-            font-size: 28px;
+            left: 25px;
+            color: #facc15;
+            font-size: 32px;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
             pointer-events: none;
         }
     </style>
@@ -52,161 +51,212 @@
 <body>
 
     <div class="game-container">
-        <div class="score-board" id="scoreBoard">النقاط: 0</div>
-        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div class="hud" id="scoreDisplay">النقاط: 0</div>
+        <canvas id="gameCanvas" width="850" height="550"></canvas>
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const scoreBoard = document.getElementById("scoreBoard");
+        const scoreDisplay = document.getElementById("scoreDisplay");
 
         let score = 0;
-        let fruits = [];
-        let slices = []; // لتتبع آثار السكين أو الإصبع
+        let entities = []; // الفواكه الكاملة والنصفية
+        let slices = [];  // أثر السكين
         let isMouseDown = false;
 
-        // مصفوفة أنواع الفواكه وألوانها
-        const fruitTypes = [
-            { name: "بطيخ", color: "#ef4444", outerColor: "#15803d", radius: 35 },
-            { name: "برتقال", color: "#f97316", outerColor: "#ea580c", radius: 28 },
-            { name: "تفاح", color: "#22c55e", outerColor: "#15803d", radius: 25 },
-            { name: "موز", color: "#eab308", outerColor: "#ca8a04", radius: 22 }
+        // أنواع الفواكه بتفاصيل واقعية
+        const fruitTemplates = [
+            { name: "watermelon", radius: 40, outer: "#15803d", inner: "#ef4444", seed: true },
+            { name: "orange", radius: 30, outer: "#ea580c", inner: "#f97316", seed: false },
+            { name: "apple", radius: 28, outer: "#16a34a", inner: "#4ade80", seed: true },
+            { name: "lemon", radius: 25, outer: "#ca8a04", inner: "#facc15", seed: false }
         ];
 
-        // توليد فاكهة جديدة تطير للأعلى
+        // إطلاق فاكهة جديدة
         function spawnFruit() {
-            let type = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
-            let fruit = {
-                x: Math.random() * (canvas.width - 200) + 100,
-                y: canvas.height + 40,
-                vx: (Math.random() - 0.5) * 6,
-                vy: -(Math.random() * 4 + 11), // قوة القفز للأعلى
-                radius: type.radius,
-                color: type.color,
-                outerColor: type.outerColor,
-                sliced: false,
+            let template = fruitTemplates[Math.floor(Math.random() * fruitTemplates.length)];
+            entities.push({
+                isHalf: false,
+                x: Math.random() * (canvas.width - 300) + 150,
+                y: canvas.height + 50,
+                vx: (Math.random() - 0.5) * 5,
+                vy: -(Math.random() * 4 + 12),
+                radius: template.radius,
+                outer: template.outer,
+                inner: template.inner,
+                seed: template.seed,
                 rotation: 0,
-                vRot: (Math.random() - 0.5) * 0.1
-            };
-            fruits.push(fruit);
+                vRot: (Math.random() - 0.5) * 0.08
+            });
         }
 
-        // تتبع حركة الفأرة أو اللمس للتقطيع
-        window.addEventListener("mousedown", (e) => { isMouseDown = true; addSlicePoint(e); });
+        // تتبع حركة السكين (ماوس أو لمس)
+        window.addEventListener("mousedown", (e) => { isMouseDown = true; addSlice(e); });
         window.addEventListener("mouseup", () => { isMouseDown = false; });
-        window.addEventListener("mousemove", (e) => { if (isMouseDown) addSlicePoint(e); });
+        window.addEventListener("mousemove", (e) => { if (isMouseDown) addSlice(e); });
 
-        // دعم الموبايل باللمس
-        canvas.addEventListener("touchstart", (e) => { isMouseDown = true; addSlicePoint(e.touches[0]); e.preventDefault(); });
+        canvas.addEventListener("touchstart", (e) => { isMouseDown = true; addSlice(e.touches[0]); e.preventDefault(); });
         canvas.addEventListener("touchend", () => { isMouseDown = false; });
-        canvas.addEventListener("touchmove", (e) => { if (isMouseDown) addSlicePoint(e.touches[0]); e.preventDefault(); });
+        canvas.addEventListener("touchmove", (e) => { if (isMouseDown) addSlice(e.touches[0]); e.preventDefault(); });
 
-        function addSlicePoint(e) {
+        function addSlice(e) {
             const rect = canvas.getBoundingClientRect();
-            let x = e.clientX - rect.left;
-            let y = e.clientY - rect.top;
-            slices.push({ x: x, y: y, life: 10 }); // عمر خط التقطيع يختفي سريعا
+            slices.push({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+                life: 12
+            });
         }
 
         function update() {
-            // تحديث الفواكه وحركتها الفيزيائية (جاذبية)
-            for (let i = fruits.length - 1; i >= 0; i--) {
-                let f = fruits[i];
-                f.x += f.vx;
-                f.y += f.vy;
-                f.vy += 0.35; // الجاذبية تسحبها لأسفل
-                f.rotation += f.vRot;
+            // تحديث حركة الفواكه والأنصاف
+            for (let i = entities.length - 1; i >= 0; i--) {
+                let ent = entities[i];
+                ent.x += ent.vx;
+                ent.y += ent.vy;
+                ent.vy += 0.38; // الجاذبية
+                ent.rotation += ent.vRot;
 
-                // إزالة الفاكهة إذا خرجت من الشاشة
-                if (f.y > canvas.height + 60) {
-                    fruits.splice(i, 1);
+                if (ent.y > canvas.height + 100) {
+                    entities.splice(i, 1);
                 }
             }
 
-            // تحديث خطوط السكين
+            // تحديث أثر السكين
             for (let i = slices.length - 1; i >= 0; i--) {
                 slices[i].life--;
-                if (slices[i].life <= 0) {
-                    slices.splice(i, 1);
-                }
+                if (slices[i].life <= 0) slices.splice(i, 1);
             }
 
-            // فحص التقاطع والتقطيع (إذا لامس خط السكين الفاكهة)
+            // فحص التقطيع بالسكين
             if (slices.length > 0) {
-                let currentSlice = slices[slices.length - 1];
-                for (let i = fruits.length - 1; i >= 0; i--) {
-                    let f = fruits[i];
-                    let dist = Math.hypot(currentSlice.x - f.x, currentSlice.y - f.y);
-                    if (dist < f.radius && !f.sliced) {
-                        f.sliced = true;
+                let s = slices[slices.length - 1];
+                for (let i = entities.length - 1; i >= 0; i--) {
+                    let ent = entities[i];
+                    if (!ent.isHalf && Math.hypot(s.x - ent.x, s.y - ent.y) < ent.radius) {
+                        // تقطيع الفاكهة إلى نصفين واقعيين!
                         score += 10;
-                        scoreBoard.textContent = "النقاط: " + score;
-                        // إزالة الفاكهة عند تقطيعها وإضافة تأثير بسيط
-                        fruits.splice(i, 1);
+                        scoreDisplay.textContent = "النقاط: " + score;
+
+                        // نصف أيسر
+                        entities.push({
+                            isHalf: true,
+                            side: "left",
+                            x: ent.x - 5,
+                            y: ent.y,
+                            vx: ent.vx - 3,
+                            vy: ent.vy - 2,
+                            radius: ent.radius,
+                            outer: ent.outer,
+                            inner: ent.inner,
+                            rotation: ent.rotation,
+                            vRot: -0.15
+                        });
+
+                        // نصف أيمن
+                        entities.push({
+                            isHalf: true,
+                            side: "right",
+                            x: ent.x + 5,
+                            y: ent.y,
+                            vx: ent.vx + 3,
+                            vy: ent.vy - 2,
+                            radius: ent.radius,
+                            outer: ent.outer,
+                            inner: ent.inner,
+                            rotation: ent.rotation,
+                            vRot: 0.15
+                        });
+
+                        entities.splice(i, 1);
                     }
                 }
             }
 
-            // إطلاق فواكه عشوائية كل فترة
-            if (Math.random() < 0.03) {
+            // توليد فواكه باستمرار
+            if (Math.random() < 0.025) {
                 spawnFruit();
             }
         }
 
         function draw() {
-            // مسح الشاشة ورسم خلفية خشبية مزخرفة
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // رسم خطوط خشبية أفقية خفيفة لإعطاء مظهر طاولة المطبخ
-            ctx.strokeStyle = "rgba(0,0,0,0.15)";
-            ctx.lineWidth = 2;
-            for(let y = 0; y < canvas.height; y += 40) {
+            // رسم تأثيرات الخشب الخلفي
+            ctx.strokeStyle = "rgba(0,0,0,0.2)";
+            ctx.lineWidth = 3;
+            for (let y = 0; y < canvas.height; y += 50) {
                 ctx.beginPath();
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
                 ctx.stroke();
             }
 
-            // رسم الفواكه المتطايرة
-            for (let i = 0; i < fruits.length; i++) {
-                let f = fruits[i];
+            // رسم الفواكه أو الأنصاف المقسمة
+            for (let i = 0; i < entities.length; i++) {
+                let ent = entities[i];
                 ctx.save();
-                ctx.translate(f.x, f.y);
-                ctx.rotate(f.rotation);
+                ctx.translate(ent.x, ent.y);
+                ctx.rotate(ent.rotation);
 
-                // رسم قشرة الفاكهة الخارجية
-                ctx.fillStyle = f.outerColor;
-                ctx.beginPath();
-                ctx.arc(0, 0, f.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
+                if (!ent.isHalf) {
+                    // فاكهة كاملة واقعية
+                    ctx.fillStyle = ent.outer;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, ent.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = "#111";
+                    ctx.stroke();
 
-                // رسم من الداخل (لب الفاكهة)
-                ctx.fillStyle = f.color;
-                ctx.beginPath();
-                ctx.arc(0, 0, f.radius - 6, 0, Math.PI * 2);
-                ctx.fill();
+                    // لمعة بريق خفيفة على الفاكهة
+                    ctx.fillStyle = "rgba(255,255,255,0.25);";
+                    ctx.beginPath();
+                    ctx.arc(-8, -8, ent.radius * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // رسم نصف الفاكهة بدقة بعد القطع
+                    ctx.beginPath();
+                    if (ent.side === "left") {
+                        ctx.arc(0, 0, ent.radius, Math.PI / 2, Math.PI * 1.5, false);
+                    } else {
+                        ctx.arc(0, 0, ent.radius, Math.PI * 1.5, Math.PI / 2, false);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = ent.outer;
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // الجزء الداخلي المقطوع (اللب)
+                    ctx.fillStyle = ent.inner;
+                    ctx.beginPath();
+                    if (ent.side === "left") {
+                        ctx.arc(0, 0, ent.radius - 5, Math.PI / 2, Math.PI * 1.5, false);
+                    } else {
+                        ctx.arc(0, 0, ent.radius - 5, Math.PI * 1.5, Math.PI / 2, false);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
 
                 ctx.restore();
             }
 
-            // رسم أثر السكين البراق (Blade Trail)
+            // رسم أثر السكين الاحترافي المضيء
             if (slices.length > 1) {
                 ctx.beginPath();
                 ctx.moveTo(slices[0].x, slices[0].y);
                 for (let i = 1; i < slices.length; i++) {
                     ctx.lineTo(slices[i].x, slices[i].y);
                 }
-                ctx.strokeStyle = "#38bdf8"; // لون شرارة البرق أو السكين
-                ctx.lineWidth = 6;
+                ctx.strokeStyle = "#38bdf8";
+                ctx.lineWidth = 7;
                 ctx.lineCap = "round";
-                ctx.shadowColor = "#38bdf8";
-                ctx.shadowBlur = 15;
+                ctx.shadowColor = "#0ea5e9";
+                ctx.shadowBlur = 20;
                 ctx.stroke();
-                ctx.shadowBlur = 0; // إعادة ضبط
+                ctx.shadowBlur = 0;
             }
         }
 
