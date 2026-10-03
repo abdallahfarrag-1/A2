@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة الدراجة في المنحنيات</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0f172a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            position: relative;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid #334155;
+        }
+
+        canvas {
+            background: linear-gradient(to bottom, #1e293b, #0f172a);
+            display: block;
+        }
+
+        .instructions {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #cbd5e1;
+            background: rgba(15, 23, 42, 0.7);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 15px;
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="instructions">استخدم سهم اليمين/اليسار (أو A و D) للحركة والتوازن، والأسهم للأعلى/للأسفل للسرعة!</div>
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // إعدادات الدراجة والفيزياء
+        let bike = {
+            x: 100,
+            y: 300,
+            vx: 0,
+            vy: 0,
+            angle: 0,
+            baseY: 300,
+            speed: 0.15
+        };
+
+        let keys = {};
+        let cameraX = 0;
+        let score = 0;
+
+        window.addEventListener("keydown", (e) => { keys[e.code] = true; });
+        window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+        // دالة لتوليد المنحنيات والارتفاعات المتعددة (تضاريس جبلية ومسارات أفقية)
+        function getTerrainHeight(x) {
+            // دمج عدة دوال موجية لتوليد منحنيات، مرتفعات، ومناطق أفقية مستوية
+            return 350 + 
+                   Math.sin(x * 0.003) * 100 + 
+                   Math.sin(x * 0.008) * 50 + 
+                   Math.cos(x * 0.001) * 60;
+        }
+
+        function update() {
+            // التحكم بالحركة والسرعة
+            if (keys["ArrowRight"] || keys["KeyD"]) {
+                bike.vx += bike.speed;
+                score += 0.05;
+            }
+            if (keys["ArrowLeft"] || keys["KeyA"]) {
+                bike.vx -= bike.speed;
+            }
+
+            // احتكاك ومقاومة حركة
+            bike.vx *= 0.98;
+            bike.x += bike.vx;
+
+            // حساب التضاريس تحت الدراجة مباشرة
+            let currentGround = getTerrainHeight(bike.x);
+            let nextGround = getTerrainHeight(bike.x + 10);
+            
+            // حساب زاوية ميلان المنحنى لكي تتمايل الدراجة عليه واقعياً
+            let angleRad = Math.atan2(nextGround - currentGround, 10);
+            bike.angle = angleRad;
+
+            // تثبيت الدراجة على المنحنى
+            bike.y = currentGround - 25;
+
+            // متابعة الكاميرا للدراجة
+            cameraX = bike.x - 200;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-cameraX, 0);
+
+            // --- 1. رسم الخلفية والنجوم ---
+            ctx.fillStyle = "#38bdf8";
+            ctx.beginPath();
+            ctx.arc(cameraX + 700, 100, 45, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+            ctx.fill();
+
+            // --- 2. رسم مسار المنحنيات والتلال المتعددة ---
+            ctx.beginPath();
+            ctx.moveTo(cameraX - 100, canvas.height);
+            
+            for (let x = cameraX - 100; x < cameraX + canvas.width + 100; x += 10) {
+                let y = getTerrainHeight(x);
+                ctx.lineTo(x, y);
+            }
+
+            ctx.lineTo(cameraX + canvas.width + 100, canvas.height);
+            ctx.closePath();
+
+            // تدرج لوني واقعي للأرضية
+            let groundGrad = ctx.createLinearGradient(0, 200, 0, canvas.height);
+            groundGrad.addColorStop(0, "#10b981");
+            groundGrad.addColorStop(0.2, "#047857");
+            groundGrad.addColorStop(1, "#022c22");
+            ctx.fillStyle = groundGrad;
+            ctx.fill();
+
+            // خطوط تزيينية على طول المنحنيات
+            ctx.strokeStyle = "#34d399";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            for (let x = cameraX - 100; x < cameraX + canvas.width + 100; x += 10) {
+                let y = getTerrainHeight(x);
+                if (x === cameraX - 100) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // --- 3. رسم الدراجة والسائق ---
+            ctx.save();
+            ctx.translate(bike.x, bike.y);
+            ctx.rotate(bike.angle);
+
+            // هيكل الدراجة
+            ctx.strokeStyle = "#f43f5e";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-15, 0);
+            ctx.lineTo(15, -5);
+            ctx.lineTo(5, -25);
+            ctx.closePath();
+            ctx.stroke();
+
+            // العجلة الخلفية
+            ctx.fillStyle = "#1e293b";
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(-15, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // العجلة الأمامية
+            ctx.beginPath();
+            ctx.arc(15, -5, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // السائق (الجسم والرأس)
+            ctx.fillStyle = "#fbbf24"; // الخوذة
+            ctx.beginPath();
+            ctx.arc(2, -35, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = "#3b82f6"; // الجسم
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(2, -28);
+            ctx.lineTo(0, -10);
+            ctx.stroke();
+
+            ctx.restore();
+            ctx.restore();
+
+            // --- 4. رسم لوحة النقاط والعدادات ---
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 22px 'Segoe UI'";
+            ctx.fillText("المسافة المقطوعة: " + Math.floor(score) + " متر", 30, 40);
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
