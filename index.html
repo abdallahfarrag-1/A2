@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة الجري والقفز الواقعية - HTML5 & JS</title>
+    <title>لعبة الجري والقفز بشخصية حقيقية - HTML5 & JS</title>
     <style>
         body {
             margin: 0;
@@ -50,11 +50,11 @@
 
     <div class="game-wrapper">
         <div class="hud">
-            <span>🏃 المغامرة الليلية</span>
+            <span>🏃 مغامرة البطل الجريء</span>
             <span>النقاط: <span id="score">0</span></span>
         </div>
         <canvas id="gameCanvas" width="850" height="350"></canvas>
-        <div class="instructions">اضغط على زر <b>المسافة (Space)</b> أو انقر على الشاشة للقفز وتجنب الصخور!</div>
+        <div class="instructions">اضغط على زر <b>المسافة (Space)</b> أو انقر على الشاشة لقفز البطل وتجنب الصخور!</div>
     </div>
 
     <script>
@@ -62,28 +62,28 @@
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("score");
 
-        // إعدادات اللاعب الواقعي
+        // إعدادات اللاعب (البشري)
         let player = {
-            x: 90,
-            y: 230,
-            width: 40,
-            height: 55,
+            x: 100,
+            y: 210,
+            width: 32,
+            height: 60,
             dy: 0,
-            jumpForce: -12,
+            jumpForce: -12.5,
             gravity: 0.65,
-            grounded: false
+            grounded: false,
+            animTimer: 0
         };
 
-        // عقبات واقعية (صخور جذابة)
+        // عقبات واقعية (صخور بركانية)
         let obstacle = {
             x: 900,
-            y: 245,
+            y: 235,
             width: 35,
-            height: 40,
+            height: 50,
             speed: 6.5
         };
 
-        // خلفية وتأثيرات الجسيمات (غبار التحرك)
         let particles = [];
         let stars = [];
         for (let i = 0; i < 40; i++) {
@@ -115,9 +115,9 @@
         }
 
         function createDust() {
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 6; i++) {
                 particles.push({
-                    x: player.x + 20,
+                    x: player.x + 15,
                     y: player.y + player.height,
                     vx: (Math.random() - 0.5) * 4,
                     vy: -Math.random() * 2,
@@ -143,20 +143,25 @@
             player.dy += player.gravity;
             player.y += player.dy;
 
-            // أرضية اللعبة عند الإحداثيات 230
-            if (player.y > 230) {
-                player.y = 230;
+            // أرضية اللعبة عند الإحداثيات 225
+            if (player.y > 225) {
+                player.y = 225;
                 player.dy = 0;
                 player.grounded = true;
+            }
+
+            // عداد حركة الأرجل والأذرع أثناء الجري
+            if (player.grounded) {
+                player.animTimer += obstacle.speed * 0.15;
             }
 
             // حركة العقبة
             obstacle.x -= obstacle.speed;
             if (obstacle.x < -40) {
-                obstacle.x = canvas.width + Math.random() * 100;
+                obstacle.x = canvas.width + Math.random() * 120;
                 score += 15;
                 scoreElement.innerText = score;
-                obstacle.speed += 0.35; // زيادة السرعة تدريجياً لزيادة الحماس
+                obstacle.speed += 0.35; // زيادة الصعوبة والسرعة تدريجياً
             }
 
             // تحديث جزيئات الغبار
@@ -167,7 +172,7 @@
                 if (p.alpha <= 0) particles.splice(index, 1);
             });
 
-            // فحص التصادم بدقة
+            // فحص التصادم بدقة مع جسم البطل
             if (
                 player.x < obstacle.x + obstacle.width - 8 &&
                 player.x + player.width - 8 > obstacle.x &&
@@ -179,7 +184,7 @@
         }
 
         function draw() {
-            // تدرج خلفية ليلية واقعية سحرية
+            // خلفية ليلية متدرجة وسحرية
             let bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             bgGradient.addColorStop(0, '#090d16');
             bgGradient.addColorStop(0.6, '#1e1b4b');
@@ -187,31 +192,34 @@
             ctx.fillStyle = bgGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // رسم النجوم المتلألئة
-            stars.forEach(s => {
+            // النجوم المتلألئة
+            stars.sforEach ? stars.forEach(s => {
                 ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
                 ctx.beginPath();
                 ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
                 ctx.fill();
+            }) : stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+                ctx.fillRect(s.x, s.y, s.radius * 2, s.radius * 2);
             });
 
-            // رسم التلال الخلفية الواقعية (Parallax Hills)
+            // التلال الخلفية
             ctx.fillStyle = '#172033';
             ctx.beginPath();
             ctx.moveTo(0, 280);
-            ctx.lineTo(0, 200);
-            ctx.quadraticCurveTo(250, 150, 500, 210);
-            ctx.quadraticCurveTo(700, 250, canvas.width, 190);
+            ctx.lineTo(0, 190);
+            ctx.quadraticCurveTo(250, 140, 500, 200);
+            ctx.quadraticCurveTo(750, 240, canvas.width, 180);
             ctx.lineTo(canvas.width, 280);
             ctx.fill();
 
-            // رسم الأرضية الواقعية بتدرج العشب والطين
+            // أرضية اللعبة
             ctx.fillStyle = '#064e3b';
             ctx.fillRect(0, 285, canvas.width, 65);
-            ctx.fillStyle = '#10b981'; // عشب مضيء بالأعلى
+            ctx.fillStyle = '#10b981';
             ctx.fillRect(0, 285, canvas.width, 5);
 
-            // رسم جزيئات الغبار
+            // الغبار
             particles.forEach(p => {
                 ctx.fillStyle = `rgba(203, 213, 225, ${p.alpha})`;
                 ctx.beginPath();
@@ -219,22 +227,52 @@
                 ctx.fill();
             });
 
-            // رسم الشخصية بأسلوب واقعي ومجسم (البطل)
-            let pColor = ctx.createLinearGradient(player.x, player.y, player.x, player.y + player.height);
-            pColor.addColorStop(0, '#38bdf8');
-            pColor.addColorStop(1, '#0284c7');
-            ctx.fillStyle = pColor;
+            // --- رسم الشخصية البشرية الحقيقية (بطل اللعبة) ---
+            let px = player.x;
+            let py = player.y;
+
+            // لون الملابس (قميص أزرق وبنطلون داكن)
+            ctx.fillStyle = '#38bdf8'; // القميص
+            ctx.fillRect(px + 6, py + 20, 20, 22);
+
+            // الرأس والبشرة
+            ctx.fillStyle = '#fbcfe8';
             ctx.beginPath();
-            ctx.roundRect(player.x, player.y, player.width, player.height, 10);
+            ctx.arc(px + 16, py + 10, 10, 0, Math.PI * 2);
             ctx.fill();
 
-            // تفاصيل البطل (عين متوهجة ذكية)
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(player.x + 22, player.y + 12, 8, 8);
+            // شعر البطل
             ctx.fillStyle = '#0f172a';
-            ctx.fillRect(player.x + 26, player.y + 14, 4, 4);
+            ctx.beginPath();
+            ctx.arc(px + 16, py + 6, 10, Math.PI, Math.PI * 2);
+            ctx.fill();
 
-            // رسم العقبة (صخرة كريستالية واقعية)
+            // الأرجل (تتحرك أفقياً وعمودياً بناءً على سرعة الجري أو القفز)
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+
+            let legOffset = player.grounded ? Math.sin(player.animTimer) * 8 : 0;
+            
+            // الساق اليمنى
+            ctx.beginPath();
+            ctx.moveTo(px + 12, py + 42);
+            ctx.lineTo(px + 8 + legOffset, py + 60);
+            ctx.stroke();
+
+            // الساق اليسرى
+            ctx.beginPath();
+            ctx.moveTo(px + 20, py + 42);
+            ctx.lineTo(px + 24 - legOffset, py + 60);
+            ctx.stroke();
+
+            // الذراعين
+            ctx.beginPath();
+            ctx.moveTo(px + 16, py + 24);
+            ctx.lineTo(px + 28 - legOffset * 0.5, py + 36);
+            ctx.stroke();
+
+            // --- رسم العقبة (صخرة حادة واقعية) ---
             let oColor = ctx.createLinearGradient(obstacle.x, obstacle.y, obstacle.x, obstacle.y + obstacle.height);
             oColor.addColorStop(0, '#f43f5e');
             oColor.addColorStop(1, '#881337');
@@ -246,7 +284,7 @@
             ctx.closePath();
             ctx.fill();
 
-            // واجهة الخسارة المذهلة
+            // شاشة الخسارة
             if (isGameOver) {
                 ctx.fillStyle = "rgba(3, 7, 18, 0.85)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -254,7 +292,7 @@
                 ctx.fillStyle = "#f87171";
                 ctx.font = "bold 32px 'Segoe UI'";
                 ctx.textAlign = "center";
-                ctx.fillText("اصطدمت بالعقبة!", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillText("اصطدمت بالصخور!", canvas.width / 2, canvas.height / 2 - 20);
 
                 ctx.fillStyle = "#38bdf8";
                 ctx.font = "16px 'Segoe UI'";
@@ -270,7 +308,6 @@
             }
         }
 
-        // تشغيل اللعبة
         loop();
     </script>
 </body>
