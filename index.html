@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة الجري والقفز بشخصية حقيقية - HTML5 & JS</title>
+    <title>لعبة المغامرة الكبرى - 10 مراحل وتحدي السرعة</title>
     <style>
         body {
             margin: 0;
@@ -34,7 +34,7 @@
             display: flex;
             justify-content: space-between;
             color: #facc15;
-            font-size: 20px;
+            font-size: 17px;
             font-weight: bold;
             margin-bottom: 12px;
             padding: 0 10px;
@@ -50,19 +50,23 @@
 
     <div class="game-wrapper">
         <div class="hud">
-            <span>🏃 مغامرة البطل الجريء</span>
-            <span>النقاط: <span id="score">0</span></span>
+            <span id="stage-label">🏆 المرحلة: 1 / 10</span>
+            <span id="weather-label">🌙 ليل هادئ</span>
+            <span>النقاط: <span id="score">0</span> | 🍎 التفاح: <span id="apples">0</span></span>
         </div>
         <canvas id="gameCanvas" width="850" height="350"></canvas>
-        <div class="instructions">اضغط على زر <b>المسافة (Space)</b> أو انقر على الشاشة لقفز البطل وتجنب الصخور!</div>
+        <div class="instructions">اضغط <b>المسافة (Space)</b> أو انقر للقفز! (كل 10 قفزات تبدأ مرحلة جديدة وتعود السرعة لهادئة).</div>
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("score");
+        const applesElement = document.getElementById("apples");
+        const stageLabel = document.getElementById("stage-label");
+        const weatherLabel = document.getElementById("weather-label");
 
-        // إعدادات اللاعب (البشري)
+        // إعدادات اللاعب البشري
         let player = {
             x: 100,
             y: 210,
@@ -72,31 +76,43 @@
             jumpForce: -12.5,
             gravity: 0.65,
             grounded: false,
-            animTimer: 0
+            animTimer: 0,
+            growthLevel: 1,
+            scaleFactor: 1
         };
 
-        // عقبات واقعية (صخور بركانية)
+        // العقبة والصناديق
         let obstacle = {
             x: 900,
             y: 235,
             width: 35,
             height: 50,
-            speed: 6.5
+            speed: 6.0
         };
 
-        let particles = [];
-        let stars = [];
-        for (let i = 0; i < 40; i++) {
-            stars.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * 180,
-                radius: Math.random() * 2,
-                alpha: Math.random()
-            });
+        // عنصر التفاحة
+        let apple = {
+            x: 950,
+            y: 160,
+            radius: 14,
+            active: false
+        };
+
+        let score = 0; // إجمالي القفزات
+        let currentStage = 1; // من 1 إلى 10
+        let collectedApples = 0;
+        let isGameOver = false;
+        let isVictory = false;
+
+        let rainDrops = [];
+        for (let i = 0; i < 50; i++) {
+            rainDrops.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, speed: Math.random() * 5 + 6 });
         }
 
-        let score = 0;
-        let isGameOver = false;
+        let stars = [];
+        for (let i = 0; i < 30; i++) {
+            stars.push({ x: Math.random() * canvas.width, y: Math.random() * 180, radius: Math.random() * 2, alpha: Math.random() });
+        }
 
         document.addEventListener("keydown", (e) => {
             if (e.code === "Space") triggerAction();
@@ -107,50 +123,42 @@
 
         function triggerAction() {
             if (player.grounded) {
-                player.dy = player.jumpForce;
+                player.dy = player.jumpForce * (1 - (player.growthLevel - 1) * 0.04);
                 player.grounded = false;
-                createDust();
             }
-            if (isGameOver) resetGame();
-        }
-
-        function createDust() {
-            for (let i = 0; i < 6; i++) {
-                particles.push({
-                    x: player.x + 15,
-                    y: player.y + player.height,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: -Math.random() * 2,
-                    radius: Math.random() * 4 + 2,
-                    alpha: 0.7
-                });
-            }
+            if (isGameOver || isVictory) resetGame();
         }
 
         function resetGame() {
             score = 0;
+            currentStage = 1;
+            collectedApples = 0;
+            player.growthLevel = 1;
+            player.scaleFactor = 1;
             scoreElement.innerText = score;
+            applesElement.innerText = collectedApples;
+            stageLabel.innerText = "🏆 المرحلة: 1 / 10";
             obstacle.x = 900;
-            obstacle.speed = 6.5;
+            obstacle.speed = 6.0;
             isGameOver = false;
+            isVictory = false;
             loop();
         }
 
         function update() {
-            if (isGameOver) return;
+            if (isGameOver || isVictory) return;
 
             // الجاذبية وحركة اللاعب
             player.dy += player.gravity;
             player.y += player.dy;
 
-            // أرضية اللعبة عند الإحداثيات 225
-            if (player.y > 225) {
-                player.y = 225;
+            let floorY = 225 - (player.growthLevel - 1) * 10;
+            if (player.y > floorY) {
+                player.y = floorY;
                 player.dy = 0;
                 player.grounded = true;
             }
 
-            // عداد حركة الأرجل والأذرع أثناء الجري
             if (player.grounded) {
                 player.animTimer += obstacle.speed * 0.15;
             }
@@ -158,124 +166,126 @@
             // حركة العقبة
             obstacle.x -= obstacle.speed;
             if (obstacle.x < -40) {
-                obstacle.x = canvas.width + Math.random() * 120;
-                score += 15;
+                obstacle.x = canvas.width + Math.random() * 100;
+                score += 1;
                 scoreElement.innerText = score;
-                obstacle.speed += 0.35; // زيادة الصعوبة والسرعة تدريجياً
+
+                // كل 10 قفزات ننتقل لمرحلة جديدة ونعيد تعيين السرعة للبصراوية (البداية)
+                if (score % 10 === 0) {
+                    currentStage++;
+                    if (currentStage > 10) {
+                        isVictory = true;
+                        return;
+                    }
+                    stageLabel.innerText = `🏆 المرحلة: ${currentStage} / 10`;
+                    
+                    // --- العودة للسرعة البطيئة من الأول لكل مرحلة جديدة ---
+                    obstacle.speed = 6.0 + (currentStage - 1) * 0.4; 
+                } else {
+                    // زيادة تدريجية خفيفة داخل نفس المرحلة
+                    obstacle.speed += 0.2;
+                }
+
+                // تفعيل ظهور التفاح في المراحل الفردية أو المتقدمة
+                if (currentStage >= 3) {
+                    apple.active = true;
+                    apple.x = canvas.width + 120;
+                    apple.y = Math.random() * 90 + 110;
+                }
             }
 
-            // تحديث جزيئات الغبار
-            particles.forEach((p, index) => {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.alpha -= 0.03;
-                if (p.alpha <= 0) particles.splice(index, 1);
-            });
+            // تجميع التفاح
+            if (apple.active) {
+                apple.x -= obstacle.speed;
+                let pBox = { x: player.x, y: player.y, w: player.width * player.scaleFactor, h: player.height * player.scaleFactor };
+                let dist = Math.hypot((pBox.x + pBox.w/2) - apple.x, (pBox.y + pBox.h/2) - apple.y);
+                if (dist < 32) {
+                    collectedApples += 1;
+                    applesElement.innerText = collectedApples;
+                    apple.active = false;
 
-            // فحص التصادم بدقة مع جسم البطل
+                    if (collectedApples % 8 === 0 && player.growthLevel < 3) {
+                        player.growthLevel++;
+                        player.scaleFactor += 0.25;
+                    }
+                }
+            }
+
+            // فحص التصادم مع الصخور
             if (
                 player.x < obstacle.x + obstacle.width - 8 &&
-                player.x + player.width - 8 > obstacle.x &&
+                player.x + (player.width * player.scaleFactor) - 8 > obstacle.x &&
                 player.y < obstacle.y + obstacle.height &&
-                player.y + player.height > obstacle.y
+                player.y + (player.height * player.scaleFactor) > obstacle.y
             ) {
                 isGameOver = true;
             }
         }
 
         function draw() {
-            // خلفية ليلية متدرجة وسحرية
+            // تصميم خلفية متغيرة حسب المرحلة الحالية
             let bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            bgGradient.addColorStop(0, '#090d16');
-            bgGradient.addColorStop(0.6, '#1e1b4b');
-            bgGradient.addColorStop(1, '#311026');
+            let stageTheme = currentStage % 5;
+            if (stageTheme === 1) {
+                bgGradient.addColorStop(0, '#090d16'); bgGradient.addColorStop(1, '#1e1b4b'); weatherLabel.innerText = "🌙 ليل نجوم";
+            } else if (stageTheme === 2) {
+                bgGradient.addColorStop(0, '#0284c7'); bgGradient.addColorStop(1, '#0f172a'); weatherLabel.innerText = "🌧️ مطر شتوي";
+            } else if (stageTheme === 3) {
+                bgGradient.addColorStop(0, '#ea580c'); bgGradient.addColorStop(1, '#7c2d12'); weatherLabel.innerText = "☀️ شمس ساطعة";
+            } else if (stageTheme === 4) {
+                bgGradient.addColorStop(0, '#4f46e5'); bgGradient.addColorStop(1, '#312e81'); weatherLabel.innerText = "🌬️ رياح وعواصف";
+            } else {
+                bgGradient.addColorStop(0, '#10b981'); bgGradient.addColorStop(1, '#064e3b'); weatherLabel.innerText = "🌲 غابة سحرية";
+            }
+
             ctx.fillStyle = bgGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // النجوم المتلألئة
-            stars.sforEach ? stars.forEach(s => {
-                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
-                ctx.fill();
-            }) : stars.forEach(s => {
-                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
-                ctx.fillRect(s.x, s.y, s.radius * 2, s.radius * 2);
-            });
+            // تفاصيل الطقس (نجوم أو مطر)
+            if (stageTheme === 1) {
+                stars.forEach(s => {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+                    ctx.fillRect(s.x, s.y, s.radius * 2, s.radius * 2);
+                });
+            } else if (stageTheme === 2) {
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+                ctx.lineWidth = 1.5;
+                rainDrops.forEach(r => {
+                    r.y += r.speed; if (r.y > canvas.height) r.y = 0;
+                    ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - 2, r.y + 10); ctx.stroke();
+                });
+            }
 
-            // التلال الخلفية
-            ctx.fillStyle = '#172033';
-            ctx.beginPath();
-            ctx.moveTo(0, 280);
-            ctx.lineTo(0, 190);
-            ctx.quadraticCurveTo(250, 140, 500, 200);
-            ctx.quadraticCurveTo(750, 240, canvas.width, 180);
-            ctx.lineTo(canvas.width, 280);
-            ctx.fill();
-
-            // أرضية اللعبة
+            // الأرضية
             ctx.fillStyle = '#064e3b';
             ctx.fillRect(0, 285, canvas.width, 65);
             ctx.fillStyle = '#10b981';
             ctx.fillRect(0, 285, canvas.width, 5);
 
-            // الغبار
-            particles.forEach(p => {
-                ctx.fillStyle = `rgba(203, 213, 225, ${p.alpha})`;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // --- رسم الشخصية البشرية الحقيقية (بطل اللعبة) ---
+            // رسم البطل مع ميزة التكبير
+            ctx.save();
             let px = player.x;
             let py = player.y;
+            let scale = player.scaleFactor;
+            ctx.translate(px, py);
+            ctx.scale(scale, scale);
 
-            // لون الملابس (قميص أزرق وبنطلون داكن)
-            ctx.fillStyle = '#38bdf8'; // القميص
-            ctx.fillRect(px + 6, py + 20, 20, 22);
-
-            // الرأس والبشرة
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(6, 20, 20, 22);
             ctx.fillStyle = '#fbcfe8';
-            ctx.beginPath();
-            ctx.arc(px + 16, py + 10, 10, 0, Math.PI * 2);
-            ctx.fill();
-
-            // شعر البطل
+            ctx.beginPath(); ctx.arc(16, 10, 10, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#0f172a';
-            ctx.beginPath();
-            ctx.arc(px + 16, py + 6, 10, Math.PI, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(16, 6, 10, Math.PI, Math.PI * 2); ctx.fill();
 
-            // الأرجل (تتحرك أفقياً وعمودياً بناءً على سرعة الجري أو القفز)
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 5;
-            ctx.lineCap = 'round';
-
+            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 5; ctx.lineCap = 'round';
             let legOffset = player.grounded ? Math.sin(player.animTimer) * 8 : 0;
-            
-            // الساق اليمنى
-            ctx.beginPath();
-            ctx.moveTo(px + 12, py + 42);
-            ctx.lineTo(px + 8 + legOffset, py + 60);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(12, 42); ctx.lineTo(8 + legOffset, 60); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(20, 42); ctx.lineTo(24 - legOffset, 60); ctx.stroke();
+            ctx.restore();
 
-            // الساق اليسرى
-            ctx.beginPath();
-            ctx.moveTo(px + 20, py + 42);
-            ctx.lineTo(px + 24 - legOffset, py + 60);
-            ctx.stroke();
-
-            // الذراعين
-            ctx.beginPath();
-            ctx.moveTo(px + 16, py + 24);
-            ctx.lineTo(px + 28 - legOffset * 0.5, py + 36);
-            ctx.stroke();
-
-            // --- رسم العقبة (صخرة حادة واقعية) ---
+            // رسم الصخرة
             let oColor = ctx.createLinearGradient(obstacle.x, obstacle.y, obstacle.x, obstacle.y + obstacle.height);
-            oColor.addColorStop(0, '#f43f5e');
-            oColor.addColorStop(1, '#881337');
+            oColor.addColorStop(0, '#f43f5e'); oColor.addColorStop(1, '#881337');
             ctx.fillStyle = oColor;
             ctx.beginPath();
             ctx.moveTo(obstacle.x + obstacle.width / 2, obstacle.y);
@@ -284,18 +294,33 @@
             ctx.closePath();
             ctx.fill();
 
+            // رسم التفاحة
+            if (apple.active) {
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(apple.x, apple.y, apple.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#15803d'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(apple.x, apple.y - apple.radius); ctx.lineTo(apple.x + 4, apple.y - apple.radius - 6); ctx.stroke();
+            }
+
+            // شاشة الفوز بكل المراحل الـ 10
+            if (isVictory) {
+                ctx.fillStyle = "rgba(3, 7, 18, 0.9)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#facc15"; ctx.font = "bold 32px 'Segoe UI'"; ctx.textAlign = "center";
+                ctx.fillText("🎉 مبروك! اجتزت الـ 10 مراحل بنجاح!", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillStyle = "#38bdf8"; ctx.font = "16px 'Segoe UI'";
+                ctx.fillText("انقر أو اضغط مسافة لإعادة اللعب من جديد", canvas.width / 2, canvas.height / 2 + 20);
+            }
+
             // شاشة الخسارة
             if (isGameOver) {
                 ctx.fillStyle = "rgba(3, 7, 18, 0.85)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                ctx.fillStyle = "#f87171";
-                ctx.font = "bold 32px 'Segoe UI'";
-                ctx.textAlign = "center";
-                ctx.fillText("اصطدمت بالصخور!", canvas.width / 2, canvas.height / 2 - 20);
-
-                ctx.fillStyle = "#38bdf8";
-                ctx.font = "16px 'Segoe UI'";
+                ctx.fillStyle = "#f87171"; ctx.font = "bold 32px 'Segoe UI'"; ctx.textAlign = "center";
+                ctx.fillText("اصطدمت بالصخور في المرحلة " + currentStage + "!", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillStyle = "#38bdf8"; ctx.font = "16px 'Segoe UI'";
                 ctx.fillText("انقر أو اضغط مسافة لإعادة المحاولة", canvas.width / 2, canvas.height / 2 + 20);
             }
         }
@@ -303,9 +328,7 @@
         function loop() {
             update();
             draw();
-            if (!isGameOver) {
-                requestAnimationFrame(loop);
-            }
+            if (!isGameOver && !isVictory) requestAnimationFrame(loop);
         }
 
         loop();
