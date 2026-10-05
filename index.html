@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة القفز فوق الحواجز - HTML5 & JS</title>
+    <title>لعبة الجري والقفز الواقعية - HTML5 & JS</title>
     <style>
         body {
             margin: 0;
-            background-color: #0f172a;
+            background-color: #0b0f19;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -15,40 +15,46 @@
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        .game-container {
+        .game-wrapper {
             text-align: center;
             background: #1e293b;
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.8);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.9);
             border: 3px solid #334155;
         }
         canvas {
-            background: linear-gradient(to bottom, #38bdf8, #bae6fd);
-            border-radius: 10px;
+            border-radius: 12px;
             display: block;
             margin: 0 auto;
             cursor: pointer;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
         }
-        .score-board {
+        .hud {
+            display: flex;
+            justify-content: space-between;
             color: #facc15;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            padding: 0 10px;
         }
         .instructions {
             color: #94a3b8;
             font-size: 14px;
-            margin-top: 10px;
+            margin-top: 12px;
         }
     </style>
 </head>
 <body>
 
-    <div class="game-container">
-        <div class="score-board">النقاط: <span id="score">0</span></div>
-        <canvas id="gameCanvas" width="800" height="300"></canvas>
-        <div class="instructions">اضغط على زر <b>المسافة (Space)</b> أو انقر بالشاشة للقفز!</div>
+    <div class="game-wrapper">
+        <div class="hud">
+            <span>🏃 المغامرة الليلية</span>
+            <span>النقاط: <span id="score">0</span></span>
+        </div>
+        <canvas id="gameCanvas" width="850" height="350"></canvas>
+        <div class="instructions">اضغط على زر <b>المسافة (Space)</b> أو انقر على الشاشة للقفز وتجنب الصخور!</div>
     </div>
 
     <script>
@@ -56,57 +62,76 @@
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("score");
 
-        // خصائص اللاعب (البطل المكعب)
+        // إعدادات اللاعب الواقعي
         let player = {
-            x: 80,
-            y: 200,
-            width: 35,
-            height: 35,
+            x: 90,
+            y: 230,
+            width: 40,
+            height: 55,
             dy: 0,
-            jumpForce: -11,
-            gravity: 0.6,
-            grounded: false,
-            color: "#ef4444"
+            jumpForce: -12,
+            gravity: 0.65,
+            grounded: false
         };
 
-        // خصائص الحاجز
+        // عقبات واقعية (صخور جذابة)
         let obstacle = {
-            x: 800,
-            y: 205,
-            width: 25,
-            height: 45,
-            speed: 6,
-            color: "#0f172a"
+            x: 900,
+            y: 245,
+            width: 35,
+            height: 40,
+            speed: 6.5
         };
+
+        // خلفية وتأثيرات الجسيمات (غبار التحرك)
+        let particles = [];
+        let stars = [];
+        for (let i = 0; i < 40; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * 180,
+                radius: Math.random() * 2,
+                alpha: Math.random()
+            });
+        }
 
         let score = 0;
         let isGameOver = false;
 
-        // التحكم بالقفز عبر لوحة المفاتيح أو النقر
-        document.addEventListener("keydown", function(e) {
-            if (e.code === "Space") {
-                triggerJump();
-            }
+        document.addEventListener("keydown", (e) => {
+            if (e.code === "Space") triggerAction();
+        });
+        canvas.addEventListener("click", () => {
+            triggerAction();
         });
 
-        canvas.addEventListener("click", function() {
-            triggerJump();
-        });
-
-        function triggerJump() {
+        function triggerAction() {
             if (player.grounded) {
                 player.dy = player.jumpForce;
                 player.grounded = false;
+                createDust();
             }
-            if (isGameOver) {
-                resetGame();
+            if (isGameOver) resetGame();
+        }
+
+        function createDust() {
+            for (let i = 0; i < 5; i++) {
+                particles.push({
+                    x: player.x + 20,
+                    y: player.y + player.height,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: -Math.random() * 2,
+                    radius: Math.random() * 4 + 2,
+                    alpha: 0.7
+                });
             }
         }
 
         function resetGame() {
             score = 0;
-            obstacle.x = 800;
-            obstacle.speed = 6;
+            scoreElement.innerText = score;
+            obstacle.x = 900;
+            obstacle.speed = 6.5;
             isGameOver = false;
             loop();
         }
@@ -114,31 +139,38 @@
         function update() {
             if (isGameOver) return;
 
-            // حركة الجاذبية للعب
+            // الجاذبية وحركة اللاعب
             player.dy += player.gravity;
             player.y += player.dy;
 
-            // الارتطام بالأرض
-            if (player.y > 200) {
-                player.y = 200;
+            // أرضية اللعبة عند الإحداثيات 230
+            if (player.y > 230) {
+                player.y = 230;
                 player.dy = 0;
                 player.grounded = true;
             }
 
-            // حركة الحاجز نحو اليمين لليسار
+            // حركة العقبة
             obstacle.x -= obstacle.speed;
-            if (obstacle.x < -30) {
-                obstacle.x = 800;
-                score += 10;
+            if (obstacle.x < -40) {
+                obstacle.x = canvas.width + Math.random() * 100;
+                score += 15;
                 scoreElement.innerText = score;
-                // زيادة السرعة تدريجياً مع زيادة النقاط
-                obstacle.speed += 0.3;
+                obstacle.speed += 0.35; // زيادة السرعة تدريجياً لزيادة الحماس
             }
 
-            // فحص التصادم (Collision Detection)
+            // تحديث جزيئات الغبار
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+                if (p.alpha <= 0) particles.splice(index, 1);
+            });
+
+            // فحص التصادم بدقة
             if (
-                player.x < obstacle.x + obstacle.width &&
-                player.x + player.width > obstacle.x &&
+                player.x < obstacle.x + obstacle.width - 8 &&
+                player.x + player.width - 8 > obstacle.x &&
                 player.y < obstacle.y + obstacle.height &&
                 player.y + player.height > obstacle.y
             ) {
@@ -147,40 +179,85 @@
         }
 
         function draw() {
-            // مسح الشاشة
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // تدرج خلفية ليلية واقعية سحرية
+            let bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGradient.addColorStop(0, '#090d16');
+            bgGradient.addColorStop(0.6, '#1e1b4b');
+            bgGradient.addColorStop(1, '#311026');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // رسم الأرضية
-            ctx.fillStyle = "#047857";
-            ctx.fillRect(0, 235, canvas.width, 65);
+            // رسم النجوم المتلألئة
+            stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
 
-            // رسم خط فاصل للأرض
-            ctx.fillStyle = "#065f46";
-            ctx.fillRect(0, 235, canvas.width, 6);
+            // رسم التلال الخلفية الواقعية (Parallax Hills)
+            ctx.fillStyle = '#172033';
+            ctx.beginPath();
+            ctx.moveTo(0, 280);
+            ctx.lineTo(0, 200);
+            ctx.quadraticCurveTo(250, 150, 500, 210);
+            ctx.quadraticCurveTo(700, 250, canvas.width, 190);
+            ctx.lineTo(canvas.width, 280);
+            ctx.fill();
 
-            // رسم اللاعب
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
-            // إضافة تفاصيل صغيرة للاعب (عينين)
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(player.x + 20, player.y + 8, 6, 6);
+            // رسم الأرضية الواقعية بتدرج العشب والطين
+            ctx.fillStyle = '#064e3b';
+            ctx.fillRect(0, 285, canvas.width, 65);
+            ctx.fillStyle = '#10b981'; // عشب مضيء بالأعلى
+            ctx.fillRect(0, 285, canvas.width, 5);
 
-            // رسم الحاجز
-            ctx.fillStyle = obstacle.color;
-            ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            // رسم جزيئات الغبار
+            particles.forEach(p => {
+                ctx.fillStyle = `rgba(203, 213, 225, ${p.alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
 
-            // رسالة خسارة اللعبة
+            // رسم الشخصية بأسلوب واقعي ومجسم (البطل)
+            let pColor = ctx.createLinearGradient(player.x, player.y, player.x, player.y + player.height);
+            pColor.addColorStop(0, '#38bdf8');
+            pColor.addColorStop(1, '#0284c7');
+            ctx.fillStyle = pColor;
+            ctx.beginPath();
+            ctx.roundRect(player.x, player.y, player.width, player.height, 10);
+            ctx.fill();
+
+            // تفاصيل البطل (عين متوهجة ذكية)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(player.x + 22, player.y + 12, 8, 8);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(player.x + 26, player.y + 14, 4, 4);
+
+            // رسم العقبة (صخرة كريستالية واقعية)
+            let oColor = ctx.createLinearGradient(obstacle.x, obstacle.y, obstacle.x, obstacle.y + obstacle.height);
+            oColor.addColorStop(0, '#f43f5e');
+            oColor.addColorStop(1, '#881337');
+            ctx.fillStyle = oColor;
+            ctx.beginPath();
+            ctx.moveTo(obstacle.x + obstacle.width / 2, obstacle.y);
+            ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height);
+            ctx.lineTo(obstacle.x, obstacle.y + obstacle.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // واجهة الخسارة المذهلة
             if (isGameOver) {
-                ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+                ctx.fillStyle = "rgba(3, 7, 18, 0.85)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 28px 'Segoe UI'";
+                ctx.fillStyle = "#f87171";
+                ctx.font = "bold 32px 'Segoe UI'";
                 ctx.textAlign = "center";
-                ctx.fillText("انتهت اللعبة!", canvas.width / 2, canvas.height / 2 - 15);
+                ctx.fillText("اصطدمت بالعقبة!", canvas.width / 2, canvas.height / 2 - 20);
 
-                ctx.font = "16px 'Segoe UI'";
                 ctx.fillStyle = "#38bdf8";
+                ctx.font = "16px 'Segoe UI'";
                 ctx.fillText("انقر أو اضغط مسافة لإعادة المحاولة", canvas.width / 2, canvas.height / 2 + 20);
             }
         }
@@ -193,7 +270,7 @@
             }
         }
 
-        // بدء اللعبة
+        // تشغيل اللعبة
         loop();
     </script>
 </body>
