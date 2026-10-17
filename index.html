@@ -3,335 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة المغامرة الكبرى - 10 مراحل وتحدي السرعة</title>
-    <style>
-        body {
-            margin: 0;
-            background-color: #0b0f19;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    <title>تطبيق تراث - Turath App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- خط تجوال العربي من Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emeraldCustom: '#064e3b', // أخضر تراثي غامق
+                        emeraldLight: '#10b981',  // أخضر فاتح للتأثيرات
+                    },
+                    fontFamily: {
+                        tajawal: ['Tajawal', 'sans-serif'],
+                    }
+                }
+            }
         }
-        .game-wrapper {
-            text-align: center;
-            background: #1e293b;
-            padding: 25px;
-            border-radius: 20px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.9);
-            border: 3px solid #334155;
-        }
-        canvas {
-            border-radius: 12px;
-            display: block;
-            margin: 0 auto;
-            cursor: pointer;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
-        }
-        .hud {
-            display: flex;
-            justify-content: space-between;
-            color: #facc15;
-            font-size: 17px;
-            font-weight: bold;
-            margin-bottom: 12px;
-            padding: 0 10px;
-        }
-        .instructions {
-            color: #94a3b8;
-            font-size: 14px;
-            margin-top: 12px;
-        }
-    </style>
+    </script>
 </head>
-<body>
+<body class="bg-stone-50 font-tajawal min-h-screen flex items-center justify-center p-4">
 
-    <div class="game-wrapper">
-        <div class="hud">
-            <span id="stage-label">🏆 المرحلة: 1 / 10</span>
-            <span id="weather-label">🌙 ليل هادئ</span>
-            <span>النقاط: <span id="score">0</span> | 🍎 التفاح: <span id="apples">0</span></span>
+    <!-- Screen 1: Auth Screen (Login & Register) -->
+    <div id="authScreen" class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-100">
+        <!-- Header / Logo Area -->
+        <div class="bg-emerald-900 text-white p-8 text-center relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-800 rounded-full opacity-50"></div>
+            <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-emerald-800 rounded-full opacity-50"></div>
+            
+            <!-- أيقونة / شعار تراث -->
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-white text-emerald-900 rounded-full shadow-lg mb-3 relative z-10 border-4 border-emerald-100">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V11m0 0h4m-4 0H7m4 0v10"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl font-extrabold tracking-wide relative z-10">تُـــراث</h1>
+            <p class="text-emerald-200 text-sm mt-1 relative z-10">أصالة الماضي بلمسة الحديث</p>
         </div>
-        <canvas id="gameCanvas" width="850" height="350"></canvas>
-        <div class="instructions">اضغط <b>المسافة (Space)</b> أو انقر للقفز! (كل 10 قفزات تبدأ مرحلة جديدة وتعود السرعة لهادئة).</div>
+
+        <!-- Form Container -->
+        <div class="p-6 sm:p-8">
+            <!-- Tabs Toggle -->
+            <div class="flex bg-emerald-50 rounded-xl p-1 mb-6 border border-emerald-100">
+                <button id="loginTabBtn" onclick="switchTab('login')" class="flex-1 py-2 text-sm font-bold rounded-lg text-emerald-900 bg-white shadow transition-all">
+                    تسجيل الدخول
+                </button>
+                <button id="registerTabBtn" onclick="switchTab('register')" class="flex-1 py-2 text-sm font-bold rounded-lg text-emerald-700 hover:text-emerald-900 transition-all">
+                    حساب جديد
+                </button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="handleAuth(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-emerald-900 mb-1">البريد الإلكتروني / اسم المستخدم</label>
+                    <input type="text" required placeholder="example@turath.com" class="w-full px-4 py-3 rounded-lg bg-emerald-50/50 border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:bg-white transition-all text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-emerald-900 mb-1">كلمة المرور</label>
+                    <input type="password" required placeholder="••••••••" class="w-full px-4 py-3 rounded-lg bg-emerald-50/50 border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:bg-white transition-all text-sm">
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                    <label class="flex items-center text-gray-600 cursor-pointer">
+                        <input type="checkbox" class="rounded border-emerald-300 text-emerald-800 focus:ring-emerald-700 ml-1.5">
+                        تذكرني
+                    </label>
+                    <a href="#" class="text-emerald-800 hover:underline font-bold">نسيت كلمة المرور؟</a>
+                </div>
+                <button type="submit" class="w-full py-3.5 bg-emerald-900 hover:bg-emerald-800 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all text-sm">
+                    دخول
+                </button>
+            </form>
+
+            <!-- Register Form (Hidden by default) -->
+            <form id="registerForm" onsubmit="handleAuth(event)" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-bold text-emerald-900 mb-1">الاسم الكامل</label>
+                    <input type="text" required placeholder="أحمد المحمد" class="w-full px-4 py-3 rounded-lg bg-emerald-50/50 border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:bg-white transition-all text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-emerald-900 mb-1">البريد الإلكتروني</label>
+                    <input type="email" required placeholder="example@turath.com" class="w-full px-4 py-3 rounded-lg bg-emerald-50/50 border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:bg-white transition-all text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-emerald-900 mb-1">كلمة المرور</label>
+                    <input type="password" required placeholder="••••••••" class="w-full px-4 py-3 rounded-lg bg-emerald-50/50 border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:bg-white transition-all text-sm">
+                </div>
+                <button type="submit" class="w-full py-3.5 bg-emerald-900 hover:bg-emerald-800 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all text-sm">
+                    إنشاء حساب جديد
+                </button>
+            </form>
+        </div>
     </div>
 
+    <!-- Screen 2: Empty Dashboard/Main Screen (Hidden initially) -->
+    <div id="mainScreen" class="w-full max-w-4xl bg-white rounded-2xl shadow-xl min-h-[500px] hidden flex-col border border-emerald-100 overflow-hidden">
+        <!-- Main Screen Header -->
+        <header class="bg-emerald-900 text-white px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="w-10 h-10 bg-white text-emerald-900 rounded-full flex items-center justify-center font-bold">
+                    ت
+                </div>
+                <span class="font-bold text-lg">تطبيق تراث</span>
+            </div>
+            <button onclick="logout()" class="text-xs bg-emerald-800 hover:bg-emerald-700 px-3 py-2 rounded-lg transition-all border border-emerald-700">
+                تسجيل الخروج
+            </button>
+        </header>
+
+        <!-- Main Empty Content -->
+        <main class="flex-1 p-8 flex flex-col items-center justify-center text-center">
+            <div class="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-800 mb-4 border border-emerald-200">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-emerald-900 mb-2">الواجهة الرئيسية (فاضية)</h2>
+            <p class="text-gray-500 max-w-md text-sm leading-relaxed">
+                مرحباً بك في تطبيق تُراث! يمكنك الآن البدء في إضافة العناصر والمحتوى الخاص بك هنا.
+            </p>
+        </main>
+    </div>
+
+    <!-- JavaScript For Switching Tabs & Screens -->
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreElement = document.getElementById("score");
-        const applesElement = document.getElementById("apples");
-        const stageLabel = document.getElementById("stage-label");
-        const weatherLabel = document.getElementById("weather-label");
+        function switchTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginBtn = document.getElementById('loginTabBtn');
+            const registerBtn = document.getElementById('registerTabBtn');
 
-        // إعدادات اللاعب البشري
-        let player = {
-            x: 100,
-            y: 210,
-            width: 32,
-            height: 60,
-            dy: 0,
-            jumpForce: -12.5,
-            gravity: 0.65,
-            grounded: false,
-            animTimer: 0,
-            growthLevel: 1,
-            scaleFactor: 1
-        };
-
-        // العقبة والصناديق
-        let obstacle = {
-            x: 900,
-            y: 235,
-            width: 35,
-            height: 50,
-            speed: 6.0
-        };
-
-        // عنصر التفاحة
-        let apple = {
-            x: 950,
-            y: 160,
-            radius: 14,
-            active: false
-        };
-
-        let score = 0; // إجمالي القفزات
-        let currentStage = 1; // من 1 إلى 10
-        let collectedApples = 0;
-        let isGameOver = false;
-        let isVictory = false;
-
-        let rainDrops = [];
-        for (let i = 0; i < 50; i++) {
-            rainDrops.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, speed: Math.random() * 5 + 6 });
-        }
-
-        let stars = [];
-        for (let i = 0; i < 30; i++) {
-            stars.push({ x: Math.random() * canvas.width, y: Math.random() * 180, radius: Math.random() * 2, alpha: Math.random() });
-        }
-
-        document.addEventListener("keydown", (e) => {
-            if (e.code === "Space") triggerAction();
-        });
-        canvas.addEventListener("click", () => {
-            triggerAction();
-        });
-
-        function triggerAction() {
-            if (player.grounded) {
-                player.dy = player.jumpForce * (1 - (player.growthLevel - 1) * 0.04);
-                player.grounded = false;
-            }
-            if (isGameOver || isVictory) resetGame();
-        }
-
-        function resetGame() {
-            score = 0;
-            currentStage = 1;
-            collectedApples = 0;
-            player.growthLevel = 1;
-            player.scaleFactor = 1;
-            scoreElement.innerText = score;
-            applesElement.innerText = collectedApples;
-            stageLabel.innerText = "🏆 المرحلة: 1 / 10";
-            obstacle.x = 900;
-            obstacle.speed = 6.0;
-            isGameOver = false;
-            isVictory = false;
-            loop();
-        }
-
-        function update() {
-            if (isGameOver || isVictory) return;
-
-            // الجاذبية وحركة اللاعب
-            player.dy += player.gravity;
-            player.y += player.dy;
-
-            let floorY = 225 - (player.growthLevel - 1) * 10;
-            if (player.y > floorY) {
-                player.y = floorY;
-                player.dy = 0;
-                player.grounded = true;
-            }
-
-            if (player.grounded) {
-                player.animTimer += obstacle.speed * 0.15;
-            }
-
-            // حركة العقبة
-            obstacle.x -= obstacle.speed;
-            if (obstacle.x < -40) {
-                obstacle.x = canvas.width + Math.random() * 100;
-                score += 1;
-                scoreElement.innerText = score;
-
-                // كل 10 قفزات ننتقل لمرحلة جديدة ونعيد تعيين السرعة للبصراوية (البداية)
-                if (score % 10 === 0) {
-                    currentStage++;
-                    if (currentStage > 10) {
-                        isVictory = true;
-                        return;
-                    }
-                    stageLabel.innerText = `🏆 المرحلة: ${currentStage} / 10`;
-                    
-                    // --- العودة للسرعة البطيئة من الأول لكل مرحلة جديدة ---
-                    obstacle.speed = 6.0 + (currentStage - 1) * 0.4; 
-                } else {
-                    // زيادة تدريجية خفيفة داخل نفس المرحلة
-                    obstacle.speed += 0.2;
-                }
-
-                // تفعيل ظهور التفاح في المراحل الفردية أو المتقدمة
-                if (currentStage >= 3) {
-                    apple.active = true;
-                    apple.x = canvas.width + 120;
-                    apple.y = Math.random() * 90 + 110;
-                }
-            }
-
-            // تجميع التفاح
-            if (apple.active) {
-                apple.x -= obstacle.speed;
-                let pBox = { x: player.x, y: player.y, w: player.width * player.scaleFactor, h: player.height * player.scaleFactor };
-                let dist = Math.hypot((pBox.x + pBox.w/2) - apple.x, (pBox.y + pBox.h/2) - apple.y);
-                if (dist < 32) {
-                    collectedApples += 1;
-                    applesElement.innerText = collectedApples;
-                    apple.active = false;
-
-                    if (collectedApples % 8 === 0 && player.growthLevel < 3) {
-                        player.growthLevel++;
-                        player.scaleFactor += 0.25;
-                    }
-                }
-            }
-
-            // فحص التصادم مع الصخور
-            if (
-                player.x < obstacle.x + obstacle.width - 8 &&
-                player.x + (player.width * player.scaleFactor) - 8 > obstacle.x &&
-                player.y < obstacle.y + obstacle.height &&
-                player.y + (player.height * player.scaleFactor) > obstacle.y
-            ) {
-                isGameOver = true;
-            }
-        }
-
-        function draw() {
-            // تصميم خلفية متغيرة حسب المرحلة الحالية
-            let bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            let stageTheme = currentStage % 5;
-            if (stageTheme === 1) {
-                bgGradient.addColorStop(0, '#090d16'); bgGradient.addColorStop(1, '#1e1b4b'); weatherLabel.innerText = "🌙 ليل نجوم";
-            } else if (stageTheme === 2) {
-                bgGradient.addColorStop(0, '#0284c7'); bgGradient.addColorStop(1, '#0f172a'); weatherLabel.innerText = "🌧️ مطر شتوي";
-            } else if (stageTheme === 3) {
-                bgGradient.addColorStop(0, '#ea580c'); bgGradient.addColorStop(1, '#7c2d12'); weatherLabel.innerText = "☀️ شمس ساطعة";
-            } else if (stageTheme === 4) {
-                bgGradient.addColorStop(0, '#4f46e5'); bgGradient.addColorStop(1, '#312e81'); weatherLabel.innerText = "🌬️ رياح وعواصف";
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                
+                loginBtn.className = "flex-1 py-2 text-sm font-bold rounded-lg text-emerald-900 bg-white shadow transition-all";
+                registerBtn.className = "flex-1 py-2 text-sm font-bold rounded-lg text-emerald-700 hover:text-emerald-900 transition-all";
             } else {
-                bgGradient.addColorStop(0, '#10b981'); bgGradient.addColorStop(1, '#064e3b'); weatherLabel.innerText = "🌲 غابة سحرية";
-            }
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
 
-            ctx.fillStyle = bgGradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // تفاصيل الطقس (نجوم أو مطر)
-            if (stageTheme === 1) {
-                stars.forEach(s => {
-                    ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
-                    ctx.fillRect(s.x, s.y, s.radius * 2, s.radius * 2);
-                });
-            } else if (stageTheme === 2) {
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
-                ctx.lineWidth = 1.5;
-                rainDrops.forEach(r => {
-                    r.y += r.speed; if (r.y > canvas.height) r.y = 0;
-                    ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - 2, r.y + 10); ctx.stroke();
-                });
-            }
-
-            // الأرضية
-            ctx.fillStyle = '#064e3b';
-            ctx.fillRect(0, 285, canvas.width, 65);
-            ctx.fillStyle = '#10b981';
-            ctx.fillRect(0, 285, canvas.width, 5);
-
-            // رسم البطل مع ميزة التكبير
-            ctx.save();
-            let px = player.x;
-            let py = player.y;
-            let scale = player.scaleFactor;
-            ctx.translate(px, py);
-            ctx.scale(scale, scale);
-
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(6, 20, 20, 22);
-            ctx.fillStyle = '#fbcfe8';
-            ctx.beginPath(); ctx.arc(16, 10, 10, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#0f172a';
-            ctx.beginPath(); ctx.arc(16, 6, 10, Math.PI, Math.PI * 2); ctx.fill();
-
-            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-            let legOffset = player.grounded ? Math.sin(player.animTimer) * 8 : 0;
-            ctx.beginPath(); ctx.moveTo(12, 42); ctx.lineTo(8 + legOffset, 60); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(20, 42); ctx.lineTo(24 - legOffset, 60); ctx.stroke();
-            ctx.restore();
-
-            // رسم الصخرة
-            let oColor = ctx.createLinearGradient(obstacle.x, obstacle.y, obstacle.x, obstacle.y + obstacle.height);
-            oColor.addColorStop(0, '#f43f5e'); oColor.addColorStop(1, '#881337');
-            ctx.fillStyle = oColor;
-            ctx.beginPath();
-            ctx.moveTo(obstacle.x + obstacle.width / 2, obstacle.y);
-            ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height);
-            ctx.lineTo(obstacle.x, obstacle.y + obstacle.height);
-            ctx.closePath();
-            ctx.fill();
-
-            // رسم التفاحة
-            if (apple.active) {
-                ctx.fillStyle = '#ef4444';
-                ctx.beginPath();
-                ctx.arc(apple.x, apple.y, apple.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#15803d'; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.moveTo(apple.x, apple.y - apple.radius); ctx.lineTo(apple.x + 4, apple.y - apple.radius - 6); ctx.stroke();
-            }
-
-            // شاشة الفوز بكل المراحل الـ 10
-            if (isVictory) {
-                ctx.fillStyle = "rgba(3, 7, 18, 0.9)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#facc15"; ctx.font = "bold 32px 'Segoe UI'"; ctx.textAlign = "center";
-                ctx.fillText("🎉 مبروك! اجتزت الـ 10 مراحل بنجاح!", canvas.width / 2, canvas.height / 2 - 20);
-                ctx.fillStyle = "#38bdf8"; ctx.font = "16px 'Segoe UI'";
-                ctx.fillText("انقر أو اضغط مسافة لإعادة اللعب من جديد", canvas.width / 2, canvas.height / 2 + 20);
-            }
-
-            // شاشة الخسارة
-            if (isGameOver) {
-                ctx.fillStyle = "rgba(3, 7, 18, 0.85)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#f87171"; ctx.font = "bold 32px 'Segoe UI'"; ctx.textAlign = "center";
-                ctx.fillText("اصطدمت بالصخور في المرحلة " + currentStage + "!", canvas.width / 2, canvas.height / 2 - 20);
-                ctx.fillStyle = "#38bdf8"; ctx.font = "16px 'Segoe UI'";
-                ctx.fillText("انقر أو اضغط مسافة لإعادة المحاولة", canvas.width / 2, canvas.height / 2 + 20);
+                registerBtn.className = "flex-1 py-2 text-sm font-bold rounded-lg text-emerald-900 bg-white shadow transition-all";
+                loginBtn.className = "flex-1 py-2 text-sm font-bold rounded-lg text-emerald-700 hover:text-emerald-900 transition-all";
             }
         }
 
-        function loop() {
-            update();
-            draw();
-            if (!isGameOver && !isVictory) requestAnimationFrame(loop);
+        function handleAuth(event) {
+            event.preventDefault();
+            // الانتقال للشاشة الثانية
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.remove('hidden');
+            document.getElementById('mainScreen').classList.add('flex');
         }
 
-        loop();
+        function logout() {
+            // العودة لشاشة التسجيل
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.remove('flex');
+            document.getElementById('authScreen').classList.remove('hidden');
+        }
     </script>
 </body>
 </html>
